@@ -1,30 +1,29 @@
 # 🛠️ Sistema Inteligente de Diagnóstico Preditivo de Falhas Mecânicas
 
-> **Contexto:** ArcelorMittal / Tuper  
-> **Fase:** Entrega - Aula 01 (Escopo do MVP)
+> **Empresa:** ArcelorMittal / Tuper  
 
 ---
 
-## 👥 Equipe
+## Equipe
 * **Ederlane Ciribelle Silva Fernandes**
 * **Iran Andrei da Costa**
 * **Paulo Ricardo Wosniak Soares**
 
 ---
 
-## 📖 Visão Geral do Projeto
+## Visão Geral do Projeto
 O **Sistema Inteligente de Diagnóstico Preditivo** é uma solução voltada para a indústria com o objetivo de otimizar rotinas de manutenção preditiva e evitar paradas não planejadas em linhas de produção. 
 
 O sistema recebe e processa dados históricos de vibração e rotação capturados de máquinas industriais, aplicando análises estatísticas avançadas e técnicas de Inteligência Artificial para identificar comportamentos anômalos que indicam desgaste mecânico ou iminência de falhas. Os resultados são expostos em um painel web intuitivo em tempo real.
 
 ---
 
-## 🎯 Objetivo Geral
+## Objetivo Geral
 Desenvolver uma aplicação capaz de analisar dados de sensores de vibração, detectar anomalias comportamentais em equipamentos industriais e emitir alertas preditivos categorizados, auxiliando na redução de custos e na prevenção de falhas graves em componentes mecânicos.
 
 ---
 
-## 🚀 Escopo do MVP (42 Horas)
+## Escopo do MVP (42 Horas)
 
 O desenvolvimento do Produto Mínimo Viável (MVP) está dividido em 4 etapas fundamentais:
 
@@ -41,24 +40,12 @@ O desenvolvimento do Produto Mínimo Viável (MVP) está dividido em 4 etapas fu
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+## Tecnologias Utilizadas
 * **Linguagem Principal:** Python
 * **Análise & ML:** Pandas, NumPy, Scikit-learn (`Isolation Forest`)
 * **Visualização & Dashboard:** Streamlit / Dash / Framework Web (Backend & Frontend)
 * **Formatos de Dados:** CSV / JSON
-
 ---
 
-## 🤝 Divisão de Responsabilidades
-
-| Integrante | Atribuição Principal |
-| :--- | :--- |
-| **Integrante 1** | Tratamento de dados, cálculo de indicadores estatísticos e scripts em Python |
-| **Integrante 2** | Treinamento, validação e ajuste do modelo de IA (*Isolation Forest*) |
-| **Integrante 3** | Desenvolvimento do Backend, Dashboard Web e integração dos módulos |
-| **Trio (Conjunto)** | Testes do sistema, validação de cenários, refinamento e documentação do projeto |
-
----
-
-## 📜 Licença
+## Licença
 Projeto desenvolvido para fins acadêmicos e de aplicação prática no contexto da ArcelorMittal / Tuper.
