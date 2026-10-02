@@ -23,7 +23,7 @@ Desenvolver uma aplicação capaz de analisar dados de sensores de vibração, d
 
 ---
 
-## Escopo do MVP (42 Horas)
+## Escopo do MVP
 
 O desenvolvimento do Produto Mínimo Viável (MVP) está dividido em 4 etapas fundamentais:
 
