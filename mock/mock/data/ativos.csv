@@ -1,0 +1,5 @@
+id,tag,nome,tipo,localizacao,rpm_nominal
+1,MOT-101,Motor Laminador 1,MOTOR,Laminação,1780
+2,MOT-102,Motor Laminador 2,MOTOR,Laminação,1780
+3,CMP-201,Compressor de Ar 1,COMPRESSOR,Utilidades,3560
+4,CMP-202,Compressor de Ar 2,COMPRESSOR,Utilidades,3560
