@@ -11,17 +11,17 @@ import cliente  # noqa: E402
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
 
-def sensor(sid, tag, status, rms=1.5, curtose=3.0, leitura_id=1):
+def sensor(sid, tag, status, rms=1.5, curtose=3.0, leitura_id=1, modelo=None):
     motivos = {"NORMAL": ["indicadores dentro dos limites"], "ATENCAO": ["RMS 5.00 >= 4.5 (atenção)"],
                "CRITICO": ["RMS 8.20 >= 7.1 (crítico)"], None: ["sem leituras"]}[status]
     return {"sensor_id": sid, "tag": tag, "ativo": f"Ativo {tag}", "posicao": "LADO_ACOPLADO",
             "leitura_id": leitura_id, "timestamp": "2026-10-22T20:00:00Z" if leitura_id else None,
             "rms": rms if leitura_id else None, "curtose": curtose if leitura_id else None,
-            "status_alerta": status, "cor": None, "motivos": motivos}
+            "status_alerta": status, "cor": None, "motivos": motivos, "modelo": modelo}
 
 
 SENSORES = [
-    sensor(1, "MOT-101", "NORMAL"),
+    sensor(1, "MOT-101", "NORMAL", modelo={"anomalia": True, "score": 0.71}),
     sensor(2, "MOT-102", "CRITICO", rms=8.2),
     sensor(3, "CMP-201", "ATENCAO", rms=5.0),
     sensor(4, "CMP-202", None, leitura_id=None),
@@ -67,6 +67,18 @@ class TestPainel(unittest.TestCase):
         at = rodar()
         at.selectbox[0].set_value(SENSORES[3]).run()
         self.assertIn("ainda não tem leituras", at.info[0].value)
+
+    @patch.object(cliente, "historico", side_effect=historico)
+    @patch.object(cliente, "status_sensores", return_value=SENSORES)
+    def test_modelo_no_cartao_e_na_caixa(self, *_):
+        at = rodar()
+        html = " ".join(m.value for m in at.markdown)
+        self.assertEqual(html.count("visibility:hidden"), 3)  # aviso visível só no MOT-101 (regra NORMAL)
+        self.assertIn("1 com padrão anômalo pelo modelo", html)
+        self.assertIn("Modelo preditivo: não treinado", html)  # MOT-102 aberto, sem avaliação do modelo
+        at.selectbox[0].set_value(SENSORES[0]).run()
+        caixa = next(m.value for m in at.markdown if 'class="diagnostico"' in m.value)
+        self.assertIn("PADRÃO ANÔMALO (score 0.71)", caixa)
 
     @patch.object(cliente, "status_sensores", side_effect=cliente.ApiIndisponivel("conexão recusada"))
     def test_api_fora_do_ar(self, *_):

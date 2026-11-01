@@ -8,10 +8,14 @@ from unittest.mock import patch
 
 _TMP = tempfile.TemporaryDirectory()
 os.environ["DATABASE_PATH"] = str(Path(_TMP.name) / "teste.db")  # antes de importar src.config
+os.environ["MODELO_PATH"] = str(Path(_TMP.name) / "sem_modelo.joblib")  # por padrão, API sem modelo
 
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from src import database  # noqa: E402
+from services import modelo  # noqa: E402
+from src import database, ia  # noqa: E402
 from src.main import app  # noqa: E402
 
 
@@ -47,6 +51,7 @@ class TestAPI(unittest.TestCase):
         corpo = r.json()
         self.assertEqual((corpo["status_alerta"], corpo["cor"]), ("NORMAL", "verde"))
         self.assertIsInstance(corpo["id"], int)
+        self.assertIsNone(corpo["modelo"])  # sem modelo treinado, a API segue só com a regra
 
     def test_post_critico_aparece_no_get(self):
         r = self.c.post("/api/dados", json=payload(sensor_id=3, rms=8.2, curtose=9.0))
@@ -136,6 +141,52 @@ class TestAPI(unittest.TestCase):
             r = self.c.post("/api/dados", json=payload())
         self.assertEqual(r.status_code, 503)
         self.assertIn("indisponível", r.json()["detail"][0]["mensagem"])
+
+
+
+def modelo_sintetico():
+    """Isolation Forest treinado com leituras normais aleatórias dos 6 sensores."""
+    rng = np.random.default_rng(0)
+    n = 300
+    df = pd.DataFrame({"sensor_id": np.repeat(np.arange(1, 7), n), "rms": rng.normal(1.5, 0.1, 6 * n),
+                       "assimetria": rng.normal(0, 0.1, 6 * n), "curtose": rng.normal(3, 0.1, 6 * n),
+                       "frequencia_pico": rng.normal(30, 0.5, 6 * n)})
+    return {"modelos": modelo.treinar(df), "treinado_em": "2026-11-01T00:00:00+00:00"}
+
+
+class TestModeloNaAPI(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.ctx = TestClient(app)
+        cls.c = cls.ctx.__enter__()
+        cls.patch = patch.object(ia, "_pacote", modelo_sintetico())
+        cls.patch.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.patch.stop()
+        cls.ctx.__exit__(None, None, None)
+
+    def test_health_informa_modelo(self):
+        self.assertTrue(self.c.get("/health").json()["modelo"]["carregado"])
+
+    def test_leitura_tipica_nao_e_anomala(self):
+        r = self.c.post("/api/dados", json=payload(sensor_id=6, rms=1.5, curtose=3.0, assimetria=0.0))
+        self.assertFalse(r.json()["modelo"]["anomalia"])
+
+    def test_modelo_ve_o_que_a_regra_nao_ve(self):
+        # pico em 500 Hz com RMS e curtose normais: a regra diz NORMAL, o modelo estranha
+        r = self.c.post("/api/dados", json=payload(sensor_id=6, frequencia_pico=500.0)).json()
+        self.assertEqual(r["status_alerta"], "NORMAL")
+        self.assertTrue(r["modelo"]["anomalia"])
+        self.assertGreater(r["modelo"]["score"], 0.5)
+
+    def test_gets_trazem_modelo(self):
+        self.c.post("/api/dados", json=payload(sensor_id=6))
+        d = self.c.get("/api/diagnosticos", params={"sensor_id": 6}).json()["diagnosticos"][0]
+        self.assertIn("anomalia", d["modelo"])
+        sensores = {s["sensor_id"]: s for s in self.c.get("/api/status").json()["sensores"]}
+        self.assertIn("score", sensores[6]["modelo"])
 
 
 if __name__ == "__main__":

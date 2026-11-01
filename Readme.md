@@ -35,8 +35,8 @@ Desenvolver uma aplicação capaz de analisar dados de sensores de vibração, d
 | Leitura e validação dos dados (SQLite/CSV/JSON) | ✅ Pronto | `mock/leitor_dados.py` |
 | API FastAPI (`/health`, `POST /api/dados`, `/api/diagnosticos`, `/api/status`) | ✅ Pronto e testado | `src/` |
 | Regra de diagnóstico por limiar (ISO 10816 adaptada) | ✅ Pronto e testado (chamado pelo `POST /api/dados`) | `services/regras.py` |
-| Detecção de anomalias com Isolation Forest | 🔜 Planejado | experimento em `mock/leitor_dados.py --detectar` |
-| Salvar/carregar o modelo treinado (`joblib`) | 🔜 Planejado | `modelos_treinados/` |
+| Detecção de anomalias com Isolation Forest (um modelo por sensor) | ✅ Pronto e testado (na API e no painel) | `services/modelo.py`, `src/ia.py` |
+| Salvar/carregar o modelo treinado (`joblib`) | ✅ Pronto (gerado localmente, não versionado) | `modelos_treinados/` |
 | Dashboard web (Streamlit): cartões de status, gráfico de RMS/curtose e diagnóstico | ✅ Pronto (falta a lista de alertas) | `dashboard/` |
 
 ---
@@ -49,7 +49,7 @@ flowchart LR
     B --> C[("SQLite<br/>leituras_brutas")]
     C --> D["Indicadores por janela<br/>RMS · assimetria · curtose<br/>freq. de pico · rpm"]
     D --> E["Regra por limiar<br/>services/regras.py"]
-    D --> F["Isolation Forest<br/>(planejado)"]
+    D --> F["Isolation Forest<br/>services/modelo.py"]
     E --> G[("Tabela alertas")]
     F --> G
     G --> H["API FastAPI<br/>src/"]
@@ -96,6 +96,7 @@ Cada linha de `leituras_brutas` representa **uma janela de vibração já reduzi
 │   ├── main.py                # cria o app, inicializa o banco e registra as rotas
 │   ├── schemas.py             # validação da entrada (Pydantic): tipos e limites operacionais
 │   ├── erros.py               # respostas de erro em português (422 e 503)
+│   ├── ia.py                  # carrega o modelo na inicialização e avalia as leituras
 │   ├── test_api.py            # testes da API
 │   ├── config.py              # lê o .env (PORT, DATABASE_PATH, SCHEMA_PATH)
 │   ├── database.py            # conexão SQLite, init_db(), ativos e sensores iniciais
@@ -104,7 +105,9 @@ Cada linha de `leituras_brutas` representa **uma janela de vibração já reduzi
 │   └── models/                # leitura.py (consultas SQL)
 ├── services/
 │   ├── regras.py              # diagnóstico por limiar (NORMAL / ATENCAO / CRITICO)
-│   └── test_regras.py         # testes da regra
+│   ├── modelo.py              # Isolation Forest: treino, avaliação, joblib
+│   ├── test_regras.py         # testes da regra
+│   └── test_modelo.py         # testes do modelo
 ├── mock/                      # dados e simulador (ver mock/README.md)
 │   ├── schema.sql             # modelagem do banco
 │   ├── simulator.py           # gerador de leituras de vibração
@@ -119,7 +122,7 @@ Cada linha de `leituras_brutas` representa **uma janela de vibração já reduzi
 │   ├── app.py                 # cartões por sensor, gráfico e diagnóstico
 │   ├── cliente.py             # chamadas HTTP à API (API_URL)
 │   └── test_dashboard.py      # testes do painel com a API simulada
-└── modelos_treinados/         # (planejado) modelo Isolation Forest salvo
+└── modelos_treinados/         # modelo salvo por `python -m services.modelo` (não versionado)
 ```
 
 ---
@@ -153,6 +156,21 @@ python simulator.py               # 3000 leituras, semente 42 (reprodutível)
 cd ..
 ```
 
+**Treinar o modelo** (cria `modelos_treinados/isolation_forest.joblib`; sem ele, a API funciona só com a regra):
+
+```bash
+python -m services.modelo
+```
+
+O treino separa as leituras de cada sensor no tempo: os primeiros 70% treinam e os 30% finais avaliam, comparando com o gabarito do simulador. Resultado com a semente 42 (900 leituras de teste, 50 anomalias reais):
+
+| Detector | Detectadas | Perdidas | Falsos alarmes | Precisão | Recall |
+|---|---|---|---|---|---|
+| Isolation Forest | 47 | 3 | 14 | 0,77 | 0,94 |
+| Regra de limiar | 31 | 19 | 0 | 1,00 | 0,62 |
+
+O modelo salvo é treinado depois com todo o histórico. `anomalia_real` e `tipo_anomalia` nunca entram como feature.
+
 **Subir a API** (a partir da raiz do projeto):
 
 ```bash
@@ -180,7 +198,7 @@ O painel abre em `http://localhost:8501` e se atualiza a cada 10 s. Para ver lei
 **Rodar os testes automatizados:**
 
 ```bash
-python -m unittest services.test_regras src.test_api dashboard.test_dashboard -v     # regra, API e painel (na raiz)
+python -m unittest services.test_regras services.test_modelo src.test_api dashboard.test_dashboard -v     # regra, modelo, API e painel (na raiz)
 cd mock
 python -m unittest test_mock test_leitor -v
 ```
@@ -195,7 +213,7 @@ python -m services.regras
 
 | Método | Rota | Descrição | Respostas |
 |---|---|---|---|
-| GET | `/health` | Verifica a conexão com o banco | `200` saudável · `503` banco indisponível |
+| GET | `/health` | Verifica a conexão com o banco e informa se o modelo está carregado | `200` saudável · `503` banco indisponível |
 | POST | `/api/dados` | Valida a leitura, aplica a regra de diagnóstico e grava com o status calculado | `201` criada · `422` dados inválidos ou sensor inexistente · `503` banco indisponível |
 | GET | `/api/diagnosticos?limite=10&sensor_id=&status=` | Últimas leituras com status, cor e motivos (filtros opcionais) | `200` · `422` filtro inválido |
 | GET | `/api/status` | Status atual (última leitura) de cada sensor | `200` |
@@ -215,7 +233,7 @@ Exemplo de corpo do `POST /api/dados`:
 }
 ```
 
-O `status_alerta` **não é enviado**: a API calcula com `services/regras.py` e devolve junto com `cor` e `motivos`. Validações (`src/schemas.py`): campos obrigatórios, campos extras recusados, tipos estritos (texto como `"1.5"` não vira número), NaN/infinito recusados, `timestamp` ISO 8601 com fuso e não no futuro, e limites operacionais (`rms` 0–100 mm/s, `curtose` 1–1024, `assimetria` ±32, `frequencia_pico` 0–1024 Hz, `rotacao_rpm` > 0 e ≤ 10 000). Erros voltam em português:
+O `status_alerta` **não é enviado**: a API calcula com `services/regras.py` e devolve junto com `cor` e `motivos`. As respostas de leitura também trazem `modelo`: `{"anomalia": true, "score": 0.73}` (score maior = mais anômalo) ou `null` se o modelo não foi treinado. O semáforo segue a regra; o modelo é um indicador à parte, que aponta leituras fora do padrão do sensor mesmo abaixo dos limiares. Validações (`src/schemas.py`): campos obrigatórios, campos extras recusados, tipos estritos (texto como `"1.5"` não vira número), NaN/infinito recusados, `timestamp` ISO 8601 com fuso e não no futuro, e limites operacionais (`rms` 0–100 mm/s, `curtose` 1–1024, `assimetria` ±32, `frequencia_pico` 0–1024 Hz, `rotacao_rpm` > 0 e ≤ 10 000). Erros voltam em português:
 
 ```json
 {"detail": [{"campo": "rms", "mensagem": "deve ser maior ou igual a 0", "recebido": -1}]}
@@ -284,7 +302,7 @@ A curtose é guardada na forma não-excesso (distribuição normal ≈ 3).
 | RF01 | O sistema deve ingerir leituras de vibração a partir de SQLite, CSV, JSON e `POST /api/dados`, rejeitando registros inválidos com o motivo. | Pronto |
 | RF02 | O sistema deve disponibilizar, por janela, os indicadores RMS, assimetria, curtose, frequência de pico e rotação, e permitir consultar as últimas leituras. | Pronto |
 | RF03 | O sistema deve classificar cada leitura como NORMAL, ATENCAO ou CRITICO por regra de limiar. | Pronto |
-| RF04 | O sistema deve detectar anomalias com Isolation Forest, sem depender de falhas rotuladas. | Planejado |
+| RF04 | O sistema deve detectar anomalias com Isolation Forest, sem depender de falhas rotuladas. | Pronto |
 | RF05 | O sistema deve registrar um alerta na tabela `alertas` quando o status de um sensor piorar. | Planejado |
 | RF06 | O dashboard deve exibir o status por cores de cada ativo/sensor e a lista de alertas. | Parcial (falta a lista de alertas, depende do RF05) |
 | RF07 | A API deve expor `GET /health` informando a situação da conexão com o banco. | Pronto |
@@ -293,11 +311,11 @@ A curtose é guardada na forma não-excesso (distribuição normal ≈ 3).
 
 | ID | Requisito | Status |
 |---|---|---|
-| RNF01 | A resposta de uma inferência sobre o conjunto de dados do mock (≈ 5 mil leituras) deve levar menos de 3 s. | Meta |
+| RNF01 | A resposta de uma inferência sobre o conjunto de dados do mock (≈ 5 mil leituras) deve levar menos de 3 s. | Atendido (testado em `services/test_modelo.py`) |
 | RNF02 | O projeto deve ser executável a partir de um clone limpo seguindo apenas este README; os dados do simulador devem ser reprodutíveis (`--seed`). | A validar |
-| RNF03 | O modelo treinado deve ser salvo e carregado com `joblib`, sem retreinar a cada inicialização. | Planejado |
+| RNF03 | O modelo treinado deve ser salvo e carregado com `joblib`, sem retreinar a cada inicialização. | Atendido |
 | RNF04 | Configurações e segredos ficam no `.env`; `.env` e `*.db` não são versionados. | Atendido |
-| RNF05 | A lógica de leitura/validação e o simulador devem ter testes automatizados. | Atendido (`mock/`, `services/test_regras.py`) |
+| RNF05 | A lógica de leitura/validação e o simulador devem ter testes automatizados. | Atendido (`mock/`, `services/`, `src/`, `dashboard/`) |
 
 ---
 
@@ -305,7 +323,8 @@ A curtose é guardada na forma não-excesso (distribuição normal ≈ 3).
 
 - Os dados são sintéticos; a validação com dados reais da planta depende da disponibilidade fornecida pela empresa.
 - Os limiares da regra são uma adaptação da ISO 10816, não calibrados para os ativos reais.
-- O Isolation Forest ainda não está treinado nem integrado à API; hoje existe apenas um experimento comparativo em `mock/leitor_dados.py --detectar`.
+- O Isolation Forest tem ~0,77 de precisão no teste: cerca de 1 em cada 4 avisos do modelo é falso alarme. Por isso ele não muda o semáforo, só sinaliza.
+- O modelo aprende o "normal" de cada sensor com dados sintéticos; com dados reais precisa ser retreinado (`python -m services.modelo`).
 - O endpoint `/api/exemplo` é provisório; use `/api/diagnosticos`.
 - O `POST /api/dados` ainda não grava registros na tabela `alertas` (RF05).
 

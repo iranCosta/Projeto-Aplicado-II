@@ -254,7 +254,45 @@
 * README orienta usar `--recriar` no modo stream para evitar o salto no gráfico.
 * As duas leituras de teste enviadas para conferir as cores foram apagadas do banco local.
 * [EQUIPE: ajustes de estilo ou usabilidade feitos por vocês depois de ver o painel — ex.: tamanho de fonte num monitor real, ordem dos cartões]
-* [EQUIPE: o Projeto 1 pede o "diagnóstico emitido pelo modelo preditivo"; hoje a caixa mostra a regra de limiar e indica que o Isolation Forest ainda será integrado]
+* O "diagnóstico emitido pelo modelo preditivo" pedido para o Projeto 1 foi adicionado na etapa seguinte (Isolation Forest).
+
+---
+
+### Sprint 2 / Isolation Forest e persistência com joblib (01/11/2026, antes das orientações da Aula 08)
+
+**1. Contexto e Objetivo da Tarefa**
+
+* Treinar o detector de anomalias (RF04) e salvá-lo com joblib (RNF03).
+* Avaliá-lo de forma honesta contra a regra de limiar.
+* Mostrar o resultado na API e no painel, que é o "diagnóstico emitido pelo modelo preditivo" do Projeto 1.
+
+**2. Principais Prompts e Contexto Fornecido**
+
+* **Prompt 1 (Claude Code):** "próximo passo", depois de a IA sugerir o Isolation Forest como próxima etapa.
+* **Contexto adicional:**
+  * Experimento existente em `mock/leitor_dados.py --detectar`.
+  * Prompt de continuidade, que pede separar treino e avaliação e evitar vazamento de dados.
+  * Banco do simulador com gabarito.
+
+**3. Avaliação da Resposta Gerada**
+
+* **O que funcionou de primeira:**
+  * `services/modelo.py`: um Isolation Forest por sensor, divisão temporal 70/30, comparação com a regra, salvamento com joblib (comprimido de 8,5 MB para 2,1 MB).
+  * `src/ia.py`: carrega o modelo uma vez na inicialização; sem o arquivo, a API segue só com a regra.
+  * Campo `modelo` (anomalia e score) em todas as respostas de leitura e situação do modelo no `/health`.
+  * Painel: aviso no cartão, linha do modelo na caixa de diagnóstico e anel no gráfico nas leituras anômalas.
+* **Falhas, alucinações ou código quebrado:**
+  * O experimento original treinava e avaliava nos mesmos dados (recall 0,93 otimista). Com teste separado, o resultado ficou em recall 0,94 e precisão 0,77 (Isolation Forest), contra recall 0,62 e precisão 1,0 (regra).
+  * `pontuar()` quebrava com índice repetido no DataFrame. O teste de desempenho (RNF01) encontrou o erro e a função passou a trabalhar por posição.
+  * Os testes da API passavam a carregar o modelo real da pasta e dependiam do ambiente. Foram isolados com `MODELO_PATH` temporário e um modelo sintético.
+  * No painel, o aviso do modelo deixava um cartão mais alto e desalinhava a grade, e o detalhe não abria no sensor marcado pelo modelo.
+
+**4. Intervenção Humana e Refatoração**
+
+* Decisão de projeto: o semáforo continua sendo o da regra (determinística, sem falsos alarmes), e o modelo aparece como indicador à parte. Motivo: precisão de 0,77, ou seja, cerca de 1 em cada 4 avisos do modelo é falso. [EQUIPE: confirmar ou rever essa decisão]
+* Espaço do aviso reservado em todos os cartões. A prioridade do detalhe passou a ser crítico → atenção → anômalo pelo modelo.
+* Leitura de teste (RMS 3,6 com pico em 2× a rotação: regra NORMAL, modelo anômalo) usada para conferir o painel e depois apagada.
+* [EQUIPE: comparar com as orientações da Aula 08 quando forem publicadas]
 
 ---
 

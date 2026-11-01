@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
-from src import erros
+from src import erros, ia
 from src.config import PORT
 from src.database import init_db
 from src.routes import dados, health
@@ -12,6 +12,7 @@ from src.routes import dados, health
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()  # cria as tabelas automaticamente na inicialização
+    ia.carregar()  # Isolation Forest salvo com joblib (se existir)
     yield
 
 
