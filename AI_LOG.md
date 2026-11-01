@@ -12,7 +12,7 @@
 
 * **Modelos / Plataformas:**
   * Claude (Anthropic): simulador e dados (Aula 03). [EQUIPE: versão do modelo e quem usou]
-  * Claude Opus 5.5 no Claude Code (app desktop): testes da regra (Aula 05) e API com validação (Aula 06), sessão da Ederlane.
+  * Claude Opus 5.5 no Claude Code (app desktop): testes da regra (Aula 05), API com validação (Aula 06) e painel Streamlit (Aula 07), sessão da Ederlane.
   * [EQUIPE: outras ferramentas usadas na Semana 02, Aula 04 e Aula 05, ex.: ChatGPT, Gemini]
 * **Assistentes de IDE:** [EQUIPE: ex.: Copilot, Cursor — ou "nenhum"]
 
@@ -208,6 +208,53 @@
 * [EQUIPE: teste manual pelo Swagger `/docs` — registrar os casos testados e o resultado]
 * [EQUIPE: revisar os limites operacionais com quem conhece os equipamentos]
 * Mudança incompatível: `POST /api/dados` não aceita mais `status_alerta`, então os clientes antigos precisam ser ajustados. [EQUIPE: confirmar que o Iran e o Paulo foram avisados]
+
+---
+
+### Sprint 2 / Aula 07 — Construção da Interface do Utilizador (01/11/2026)
+
+**1. Contexto e Objetivo da Tarefa**
+
+* Criar a tela operacional do Projeto 1 (painel de monitoramento), legível a 2 metros, com:
+  * gráfico temporal de RMS;
+  * semáforo (verde / amarelo / vermelho);
+  * caixa de texto com o diagnóstico.
+
+**2. Principais Prompts e Contexto Fornecido**
+
+* **Prompt 1 (Claude Code):** as orientações da Aula 07 e as instruções extras do Projeto 1 foram coladas no chat com o pedido de "continuar".
+* **Contexto adicional:**
+  * Decisão do README de usar Streamlit lendo os dados só pela API.
+  * Endpoints `/api/status` e `/api/diagnosticos` da Aula 06.
+  * Banco gerado pelo simulador.
+
+**3. Avaliação da Resposta Gerada**
+
+* **O que funcionou de primeira:**
+  * `dashboard/cliente.py` (chamadas HTTP com timeout e erro próprio quando a API cai).
+  * Cartões grandes por sensor, com contraste alto e pulso no estado crítico.
+  * Resumo "X críticos · Y em atenção · Z normais".
+  * Seleção automática do primeiro sensor com problema.
+  * Gráfico Altair de RMS e curtose com linhas tracejadas nos limiares da regra (importados de `services/regras.py`, sem duplicar valores).
+  * Atualização automática a cada 10 s.
+  * 4 testes com `streamlit.testing.v1.AppTest`, com a API simulada.
+* **Falhas e problemas encontrados ao ver o painel rodando:**
+  * A caixa de diagnóstico usava `st.error` / `st.success`: texto pequeno e pouco contraste no tema escuro, ilegível a 2 m.
+  * O eixo do gráfico mostrava os dias em inglês ("Fri 09") e a legenda mostrava "ATENCAO" sem acento.
+  * `use_container_width` está obsoleto na versão 1.66 do Streamlit.
+  * O endpoint `/api/diagnosticos` limitava a 100 leituras, pouco para um gráfico temporal.
+  * Leituras novas, com horário atual, ao lado do lote histórico do simulador (09/10) deixam um salto de semanas no gráfico.
+
+**4. Intervenção Humana e Refatoração**
+
+* Caixa de diagnóstico refeita em HTML no mesmo padrão dos cartões (fonte grande, cor do estado).
+* Eixo no formato `dd/mm HH:MM` e legenda com acentos.
+* Troca para `width="stretch"`.
+* Limite de `/api/diagnosticos` ampliado para 500.
+* README orienta usar `--recriar` no modo stream para evitar o salto no gráfico.
+* As duas leituras de teste enviadas para conferir as cores foram apagadas do banco local.
+* [EQUIPE: ajustes de estilo ou usabilidade feitos por vocês depois de ver o painel — ex.: tamanho de fonte num monitor real, ordem dos cartões]
+* [EQUIPE: o Projeto 1 pede o "diagnóstico emitido pelo modelo preditivo"; hoje a caixa mostra a regra de limiar e indica que o Isolation Forest ainda será integrado]
 
 ---
 

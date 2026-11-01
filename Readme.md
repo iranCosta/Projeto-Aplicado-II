@@ -37,7 +37,7 @@ Desenvolver uma aplicação capaz de analisar dados de sensores de vibração, d
 | Regra de diagnóstico por limiar (ISO 10816 adaptada) | ✅ Pronto e testado (chamado pelo `POST /api/dados`) | `services/regras.py` |
 | Detecção de anomalias com Isolation Forest | 🔜 Planejado | experimento em `mock/leitor_dados.py --detectar` |
 | Salvar/carregar o modelo treinado (`joblib`) | 🔜 Planejado | `modelos_treinados/` |
-| Dashboard web (Streamlit) | 🔜 Planejado | `dashboard/` |
+| Dashboard web (Streamlit): cartões de status, gráfico de RMS/curtose e diagnóstico | ✅ Pronto (falta a lista de alertas) | `dashboard/` |
 
 ---
 
@@ -54,7 +54,7 @@ flowchart LR
     F --> G
     G --> H["API FastAPI<br/>src/"]
     C --> H
-    H --> I["Dashboard Streamlit<br/>(planejado)"]
+    H --> I["Dashboard Streamlit<br/>dashboard/"]
 ```
 
 **Fluxo:** ingestão → indicadores → detecção (regra + Isolation Forest) → alertas → API → dashboard.
@@ -77,7 +77,7 @@ Cada linha de `leituras_brutas` representa **uma janela de vibração já reduzi
 | **Interface** | **Streamlit consumindo a API FastAPI via HTTP** |
 | Testes | `unittest` |
 
-> A interface foi definida como **Streamlit**: ele lê os dados pela API (`/api/...`) em vez de acessar o banco diretamente, mantendo o backend como única porta de entrada. Ao implementar o dashboard, incluir `streamlit` e `requests` no `requirements.txt`.
+> A interface foi definida como **Streamlit**: ele lê os dados pela API (`/api/...`) em vez de acessar o banco diretamente, mantendo o backend como única porta de entrada.
 
 ---
 
@@ -115,7 +115,10 @@ Cada linha de `leituras_brutas` representa **uma janela de vibração já reduzi
 │   ├── requirements.txt
 │   └── data/                  # ativos.csv, sensores.csv, leituras_brutas.csv/.json
 │                              # vibracao.db é gerado localmente (não versionado)
-├── dashboard/                 # (planejado) app Streamlit
+├── dashboard/                 # painel Streamlit (lê os dados só pela API)
+│   ├── app.py                 # cartões por sensor, gráfico e diagnóstico
+│   ├── cliente.py             # chamadas HTTP à API (API_URL)
+│   └── test_dashboard.py      # testes do painel com a API simulada
 └── modelos_treinados/         # (planejado) modelo Isolation Forest salvo
 ```
 
@@ -166,10 +169,18 @@ curl "http://localhost:8000/api/diagnosticos?limite=5"
 curl http://localhost:8000/api/status
 ```
 
+**Subir o painel** (em outro terminal, com a API no ar):
+
+```bash
+streamlit run dashboard/app.py
+```
+
+O painel abre em `http://localhost:8501` e se atualiza a cada 10 s. Para ver leituras chegando, rode o simulador em modo contínuo: `cd mock && python simulator.py --modo stream --intervalo 2` (as leituras usam o horário atual; acrescente `--recriar` para começar com o banco vazio e o gráfico não ficar com um salto desde o lote histórico, lembrando que isso apaga as leituras existentes). O endereço da API vem de `API_URL` no `.env` (padrão `http://localhost:8000`).
+
 **Rodar os testes automatizados:**
 
 ```bash
-python -m unittest services.test_regras src.test_api -v     # regra e API (na raiz)
+python -m unittest services.test_regras src.test_api dashboard.test_dashboard -v     # regra, API e painel (na raiz)
 cd mock
 python -m unittest test_mock test_leitor -v
 ```
@@ -275,7 +286,7 @@ A curtose é guardada na forma não-excesso (distribuição normal ≈ 3).
 | RF03 | O sistema deve classificar cada leitura como NORMAL, ATENCAO ou CRITICO por regra de limiar. | Pronto |
 | RF04 | O sistema deve detectar anomalias com Isolation Forest, sem depender de falhas rotuladas. | Planejado |
 | RF05 | O sistema deve registrar um alerta na tabela `alertas` quando o status de um sensor piorar. | Planejado |
-| RF06 | O dashboard deve exibir o status por cores de cada ativo/sensor e a lista de alertas. | Planejado |
+| RF06 | O dashboard deve exibir o status por cores de cada ativo/sensor e a lista de alertas. | Parcial (falta a lista de alertas, depende do RF05) |
 | RF07 | A API deve expor `GET /health` informando a situação da conexão com o banco. | Pronto |
 
 ### Não funcionais

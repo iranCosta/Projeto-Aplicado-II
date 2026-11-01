@@ -5,3 +5,5 @@ fastapi>=0.110
 uvicorn>=0.29
 python-dotenv>=1.0
 httpx>=0.27            # usado pelo TestClient nos testes da API
+streamlit>=1.50          # painel (dashboard/)
+requests>=2.31
