@@ -26,6 +26,10 @@ def _validar(leitura, sensores_validos):
     if faltando:
         raise DadosInvalidosError(f"campos ausentes: {faltando}")
 
+    sid = leitura["sensor_id"]
+    if isinstance(sid, bool) or not isinstance(sid, int) or sid <= 0:
+        raise DadosInvalidosError(f"sensor_id deve ser inteiro positivo: {sid!r}")
+
     if sensores_validos is not None and leitura["sensor_id"] not in sensores_validos:
         raise DadosInvalidosError(f"sensor inexistente: {leitura['sensor_id']}")
 
@@ -69,3 +73,18 @@ def diagnosticar_leitura(leitura: dict, sensores_validos=None) -> dict:
         "cor": {"NORMAL": "verde", "ATENCAO": "amarelo", "CRITICO": "vermelho"}[status],
         "motivos": motivos or ["indicadores dentro dos limites"],
     }
+
+
+if __name__ == "__main__":
+    # Demonstração no terminal (Aula 05). Rode da raiz: python -m services.regras
+    base = {"sensor_id": 1, "assimetria": 0.1, "frequencia_pico": 30.0, "rotacao_rpm": 1780}
+    cenarios = {
+        "1. caso perfeito": {**base, "rms": 1.5, "curtose": 3.0},
+        "2. caso crítico": {**base, "rms": 8.2, "curtose": 9.0},
+        "3. erro de entrada": {**base, "rms": -1.0, "curtose": 3.0},
+    }
+    for nome, leitura in cenarios.items():
+        try:
+            print(f"{nome}: {diagnosticar_leitura(leitura, sensores_validos={1, 2, 3, 4, 5, 6})}")
+        except DadosInvalidosError as e:
+            print(f"{nome}: DadosInvalidosError -> {e}")

@@ -34,7 +34,7 @@ Desenvolver uma aplicação capaz de analisar dados de sensores de vibração, d
 | Modelagem do banco (SQLite, 4 tabelas) | ✅ Pronto | `mock/schema.sql` |
 | Leitura e validação dos dados (SQLite/CSV/JSON) | ✅ Pronto | `mock/leitor_dados.py` |
 | API FastAPI (`/health`, `/api/exemplo`, `POST /api/dados`) | ✅ Pronto (scaffold) | `src/` |
-| Regra de diagnóstico por limiar (ISO 10816 adaptada) | ✅ Pronto (ainda não exposto na API) | `services/regras.py` |
+| Regra de diagnóstico por limiar (ISO 10816 adaptada) | ✅ Pronto e testado (ainda não exposto na API) | `services/regras.py` |
 | Detecção de anomalias com Isolation Forest | 🔜 Planejado | experimento em `mock/leitor_dados.py --detectar` |
 | Salvar/carregar o modelo treinado (`joblib`) | 🔜 Planejado | `modelos_treinados/` |
 | Dashboard web (Streamlit) | 🔜 Planejado | `dashboard/` |
@@ -98,7 +98,8 @@ Cada linha de `leituras_brutas` representa **uma janela de vibração já reduzi
 │   ├── controllers/           # health_controller.py, dados_controller.py
 │   └── models/                # leitura.py (consultas SQL)
 ├── services/
-│   └── regras.py              # diagnóstico por limiar (NORMAL / ATENCAO / CRITICO)
+│   ├── regras.py              # diagnóstico por limiar (NORMAL / ATENCAO / CRITICO)
+│   └── test_regras.py         # testes da regra
 ├── mock/                      # dados e simulador (ver mock/README.md)
 │   ├── schema.sql             # modelagem do banco
 │   ├── simulator.py           # gerador de leituras de vibração
@@ -162,8 +163,15 @@ curl "http://localhost:8000/api/exemplo?limite=5"
 **Rodar os testes automatizados:**
 
 ```bash
+python -m unittest services.test_regras -v     # regra de diagnóstico (na raiz)
 cd mock
 python -m unittest test_mock test_leitor -v
+```
+
+**Demonstração da regra no terminal** (caso perfeito, crítico e erro de entrada):
+
+```bash
+python -m services.regras
 ```
 
 ### Endpoints
@@ -265,7 +273,7 @@ A curtose é guardada na forma não-excesso (distribuição normal ≈ 3).
 | RNF02 | O projeto deve ser executável a partir de um clone limpo seguindo apenas este README; os dados do simulador devem ser reprodutíveis (`--seed`). | A validar |
 | RNF03 | O modelo treinado deve ser salvo e carregado com `joblib`, sem retreinar a cada inicialização. | Planejado |
 | RNF04 | Configurações e segredos ficam no `.env`; `.env` e `*.db` não são versionados. | Atendido |
-| RNF05 | A lógica de leitura/validação e o simulador devem ter testes automatizados. | Atendido (`mock/`) |
+| RNF05 | A lógica de leitura/validação e o simulador devem ter testes automatizados. | Atendido (`mock/`, `services/test_regras.py`) |
 
 ---
 
@@ -275,7 +283,7 @@ A curtose é guardada na forma não-excesso (distribuição normal ≈ 3).
 - Os limiares da regra são uma adaptação da ISO 10816, não calibrados para os ativos reais.
 - O Isolation Forest ainda não está treinado nem integrado à API; hoje existe apenas um experimento comparativo em `mock/leitor_dados.py --detectar`.
 - O endpoint `/api/exemplo` é provisório (consulta simples das últimas leituras).
-- `services/regras.py` ainda não é chamado pela API e não possui testes próprios.
+- `services/regras.py` ainda não é chamado pela API.
 
 ---
 

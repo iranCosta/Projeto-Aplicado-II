@@ -22,6 +22,7 @@ import argparse
 import json
 import sqlite3
 import sys
+from contextlib import closing
 from pathlib import Path
 
 import pandas as pd
@@ -38,7 +39,7 @@ def carregar(fonte: str = "sqlite", arquivo: str | None = None) -> pd.DataFrame:
     """Retorna DataFrame com as leituras, na mesma estrutura para qualquer fonte."""
     if fonte == "sqlite":
         caminho = Path(arquivo) if arquivo else DATA / "vibracao.db"
-        with sqlite3.connect(caminho) as con:
+        with closing(sqlite3.connect(caminho)) as con:  # fecha a conexão (no Windows o arquivo fica travado)
             df = pd.read_sql_query(
                 "SELECT l.*, s.ativo_id, a.tag FROM leituras_brutas l "
                 "JOIN sensores s ON s.id = l.sensor_id JOIN ativos a ON a.id = s.ativo_id "
