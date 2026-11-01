@@ -6,7 +6,8 @@ import requests
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-API_URL = os.getenv("API_URL", "http://localhost:8000").rstrip("/")
+# 127.0.0.1 e não "localhost": no Windows, "localhost" tenta IPv6 primeiro e custa ~2 s por chamada
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000").rstrip("/")
 TIMEOUT_S = 5
 
 

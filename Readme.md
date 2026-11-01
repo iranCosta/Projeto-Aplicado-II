@@ -194,7 +194,18 @@ curl http://localhost:8000/api/status
 streamlit run dashboard/app.py
 ```
 
-O painel abre em `http://localhost:8501` e se atualiza a cada 10 s. Para ver leituras chegando, rode o simulador em modo contínuo: `cd mock && python simulator.py --modo stream --intervalo 2` (as leituras usam o horário atual; acrescente `--recriar` para começar com o banco vazio e o gráfico não ficar com um salto desde o lote histórico, lembrando que isso apaga as leituras existentes). O endereço da API vem de `API_URL` no `.env` (padrão `http://localhost:8000`).
+O painel abre em `http://localhost:8501` e se atualiza a cada 10 s. Ele mostra quando está carregando, a hora da última atualização e, se a API cair, mantém os últimos dados na tela (esmaecidos) com um aviso vermelho de desde quando está sem comunicação. O endereço da API vem de `API_URL` no `.env` (padrão `http://127.0.0.1:8000`; no Windows, `localhost` custa ~2 s por chamada porque tenta IPv6 antes).
+
+**Fluxo ponta a ponta** (simulador → API → painel): com a API e o painel no ar, deixe o simulador rodando em outro terminal, enviando cada leitura pelo `POST /api/dados`:
+
+```bash
+cd mock
+python simulator.py --modo stream --n 0 --intervalo 1 --api http://127.0.0.1:8000
+```
+
+A API diagnostica, grava, gera alertas e avalia com o modelo; o terminal mostra o status devolvido, os alertas e os avisos do modelo, e o painel reage a cada 10 s. Para a demonstração, `--anomalias 0.3` faz os eventos aparecerem mais rápido. Use a mesma `--seed` do lote usado no treino (padrão 42): a semente define o "normal" de cada sensor, e com outra semente o modelo estranha máquinas sãs. Se a API cair, o simulador avisa e tenta de novo na rodada seguinte. Sem `--api`, o modo contínuo grava direto no banco (sem passar pelo backend).
+
+**CORS:** a API libera as origens listadas em `CORS_ORIGINS` no `.env` (padrão: o painel em `:8501` e fronts locais em `:3000` e `:5173`), com os métodos `GET` e `POST`. O painel Streamlit chama a API pelo servidor Python e não depende disso; a configuração vale para qualquer front que rode no navegador.
 
 **Rodar os testes automatizados:**
 
@@ -308,6 +319,7 @@ A curtose é guardada na forma não-excesso (distribuição normal ≈ 3).
 | RF05 | O sistema deve registrar um alerta na tabela `alertas` quando o status de um sensor piorar. | Pronto |
 | RF06 | O dashboard deve exibir o status por cores de cada ativo/sensor e a lista de alertas. | Pronto |
 | RF07 | A API deve expor `GET /health` informando a situação da conexão com o banco. | Pronto |
+| RF08 | O fluxo deve funcionar ponta a ponta: simulador → API → banco → painel, com o painel indicando carregamento e falha de comunicação. | Pronto (`simulator.py --api`; testado em `src/test_api.py` e `dashboard/test_dashboard.py`) |
 
 ### Não funcionais
 

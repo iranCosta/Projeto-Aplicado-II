@@ -1,6 +1,9 @@
 """Testes da API (usa um banco temporário). Rode da raiz: python -m unittest src.test_api -v"""
+import io
 import os
+import sys
 import tempfile
+import urllib.error
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -17,6 +20,9 @@ from fastapi.testclient import TestClient  # noqa: E402
 from services import modelo  # noqa: E402
 from src import database, ia  # noqa: E402
 from src.main import app  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mock"))
+import simulator  # noqa: E402
 
 
 def payload(**kw):
@@ -198,6 +204,89 @@ class TestAlertas(unittest.TestCase):
         self.assertEqual(r.status_code, 404)
         self.assertIn("não encontrado", r.json()["detail"][0]["mensagem"])
         self.assertEqual(self.c.post("/api/alertas/0/reconhecer").status_code, 422)
+
+
+class TestCors(unittest.TestCase):
+    def setUp(self):
+        self.c = TestClient(app)
+
+    def preflight(self, origem):
+        return self.c.options("/api/status", headers={"Origin": origem, "Access-Control-Request-Method": "GET"})
+
+    def test_origem_local_liberada(self):
+        r = self.preflight("http://localhost:8501")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.headers["access-control-allow-origin"], "http://localhost:8501")
+        self.assertIn("POST", r.headers["access-control-allow-methods"])
+
+    def test_origem_desconhecida_bloqueada(self):
+        self.assertNotIn("access-control-allow-origin", self.preflight("http://site-qualquer.com").headers)
+
+
+class _Resposta:
+    def __init__(self, conteudo):
+        self.conteudo = conteudo
+
+    def read(self):
+        return self.conteudo
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+
+class TestSimuladorPelaApi(unittest.TestCase):
+    """Fluxo ponta a ponta: simulador (modo stream --api) -> POST /api/dados -> banco -> GETs."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.ctx = TestClient(app)
+        cls.c = cls.ctx.__enter__()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.ctx.__exit__(None, None, None)
+
+    def urlopen(self, req, timeout=None):
+        """Troca a rede de verdade pelo TestClient, mantendo o mesmo contrato do urllib."""
+        caminho = "/" + req.full_url.split("://", 1)[1].split("/", 1)[1]
+        r = self.c.post(caminho, content=req.data, headers={"Content-Type": "application/json"})
+        if r.status_code >= 400:
+            raise urllib.error.HTTPError(req.full_url, r.status_code, "erro", {}, io.BytesIO(r.content))
+        return _Resposta(r.content)
+
+    def rodar_simulador(self, n, efeitos=None):
+        saida = io.StringIO()
+        with patch.object(simulator.urllib.request, "urlopen", side_effect=efeitos or self.urlopen),                 patch("sys.stdout", saida):
+            simulator.main(["--modo", "stream", "--n", str(n), "--intervalo", "0", "--seed", "3",
+                            "--anomalias", "0.5", "--api", "http://api.teste"])
+        return saida.getvalue()
+
+    def total(self):
+        return self.c.get("/api/diagnosticos", params={"limite": 500}).json()["total"]
+
+    def test_leituras_do_simulador_passam_pela_api(self):
+        antes = self.total()
+        saida = self.rodar_simulador(12)
+        self.assertIn("[ok] 12 leituras enviadas para API http://api.teste", saida)
+        self.assertNotIn("[erro]", saida)  # o gabarito do simulador não é enviado (seria campo extra -> 422)
+        self.assertEqual(self.total(), antes + 12)
+
+    def test_simulador_tenta_de_novo_se_a_api_cair(self):
+        chamadas = []
+
+        def cai_duas_vezes(req, timeout=None):
+            chamadas.append(1)
+            if len(chamadas) <= 2:
+                raise urllib.error.URLError("conexão recusada")
+            return self.urlopen(req, timeout)
+
+        saida = self.rodar_simulador(6, efeitos=cai_duas_vezes)
+        self.assertEqual(saida.count("[erro] API indisponível"), 2)
+        self.assertIn("[ok] 6 leituras enviadas", saida)
+        self.assertIn("(2 falhas)", saida)
 
 def modelo_sintetico():
     """Isolation Forest treinado com leituras normais aleatórias dos 6 sensores."""

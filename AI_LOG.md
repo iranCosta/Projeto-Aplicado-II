@@ -358,6 +358,83 @@
 
 ---
 
+### Sprint 2 / Aula 08 — Integração Ponta a Ponta e Checkpoint 2 (01/11/2026)
+
+**1. Contexto e Objetivo da Tarefa**
+
+* Fazer o sistema funcionar inteiro: simulador → backend → tela.
+* CORS no backend.
+* Indicação de carregamento e de erro de comunicação no painel.
+* Teste com o simulador rodando em segundo plano.
+
+**2. Principais Prompts e Contexto Fornecido**
+
+* **Prompt 1 (Claude Code):** as orientações da Aula 08 foram coladas no chat. A IA primeiro avaliou o que já era atendido e depois implementou o que faltava.
+* **Contexto adicional:** o painel da Aula 07 (que já lia tudo pela API) e o modo `stream` do simulador.
+
+**3. Avaliação da Resposta Gerada**
+
+* **O que já atendia:** o painel não tinha dados fixos no código e já fazia GET e POST na API.
+* **Lacuna encontrada:** o modo contínuo do simulador gravava **direto no SQLite**, sem passar pelo backend. A tela mudava, mas não pelo caminho que a aula pede.
+* **O que foi feito:**
+  * `simulator.py --api URL`: cada leitura vai pelo `POST /api/dados` (só os campos aceitos, sem o gabarito); o terminal mostra o status devolvido pela API, os alertas e os avisos do modelo; se a API cair, o simulador avisa e tenta de novo.
+  * CORS com lista de origens locais (`CORS_ORIGINS` no `.env`), métodos `GET` e `POST`.
+  * Painel: carregamento na primeira leitura, "Conectado à API · atualizado às …", e, se a API cair, os últimos dados continuam na tela (esmaecidos) com aviso de desde quando está sem comunicação.
+  * Testes: CORS (origem local liberada, desconhecida bloqueada), simulador → API com a rede trocada pelo `TestClient` (inclusive com quedas e nova tentativa) e painel com a API caindo depois de responder.
+* **Erros e alucinações na integração do front com o back** (só apareceram rodando de verdade, não nos testes):
+  * **`localhost` lento no Windows:** cada chamada levava cerca de 2 s, porque o Windows tenta IPv6 (`::1`) antes do IPv4. O simulador fazia uma rodada a cada ~14 s em vez de 1 s, e o painel gastava ~6 s por atualização. Medido: `localhost` 2,07 s contra `127.0.0.1` 0,00 s.
+  * **Fuso do gráfico:** o eixo dizia "Horário (UTC)", mas o navegador convertia para o horário de Brasília (01:35, enquanto os cartões mostravam 04:35 UTC). A legenda "atualizado às" também estava no horário local.
+  * **Semente diferente da do treino:** com `--seed 11`, o modelo marcava sensores sãos como anômalos (score ~0,5), porque a semente define o "normal" de cada máquina e o modelo foi treinado com a semente 42.
+  * O CORS não era necessário para o Streamlit, que chama a API pelo servidor Python; foi configurado porque a aula pede e para qualquer front que rode no navegador.
+
+**4. Intervenção Humana e Refatoração**
+
+* `API_URL` padrão trocado para `http://127.0.0.1:8000` (no `.env.example` e no `cliente.py`).
+* Gráfico desenhado em UTC e legenda "atualizado às" em UTC.
+* README explica que o simulador deve usar a mesma semente do treino.
+* Demonstração ao vivo, num banco vazio de demonstração, com o simulador enviando pela API:
+  * Desalinhamento no CMP-201 com RMS 4,03 mm/s: regra NORMAL, modelo anômalo (0,73).
+  * Duas leituras depois: regra ATENÇÃO e alerta nº 1.
+  * O painel listou os alertas chegando.
+  * Com a API derrubada: aviso "Sem comunicação desde …", cartões esmaecidos e simulador tentando de novo.
+  * Com a API religada: tudo voltou sozinho.
+* [EQUIPE: repetir a demonstração na apresentação do Checkpoint 2]
+
+---
+
+### Fechamento do Sprint 2 (Aulas 05 a 08)
+
+**Principais prompts do Sprint 2**
+
+| Aula | Prompt / pedido | Ferramenta |
+|---|---|---|
+| 05 | [EQUIPE: prompt que gerou a lógica original de `services/regras.py`]; depois, as orientações da Aula 05 coladas com o pedido de avaliar e completar | [EQUIPE] / Claude Code |
+| 06 | Orientações da Aula 06 coladas, "avaliar se atende" e depois "seguir" | Claude Code |
+| 07 | Orientações da Aula 07 e instruções extras do Projeto 1, com "continuar" | Claude Code |
+| — | "próximo passo" (Isolation Forest), "continuar" (alertas), "limpar pendências técnicas" | Claude Code |
+| 08 | Orientações da Aula 08 coladas | Claude Code |
+
+**Onde a IA errou ou deixou passar no Sprint 2**
+
+* **Validação (Aula 06):** o schema original aceitava o status vindo do cliente, texto livre no `timestamp`, NaN e infinito.
+* **Avaliação do modelo:** o experimento original media o desempenho nos mesmos dados do treino. O resultado era otimista.
+* **Bug de índice repetido em `pontuar()`:** encontrado por um teste.
+* **Usabilidade do painel**, vista só com ele rodando:
+  * caixa de diagnóstico ilegível no tema escuro;
+  * datas em inglês;
+  * cartões desalinhados.
+* **Integração (Aula 08):**
+  * lentidão do `localhost` no Windows;
+  * fuso do gráfico errado;
+  * simulador ignorando o backend.
+
+**Lição do Sprint 2**
+
+* Os testes automáticos pegaram erros de lógica, mas **três dos problemas de integração só apareceram rodando o sistema de verdade** e olhando a tela e o terminal: a latência, o fuso e o efeito da semente.
+* A demonstração ao vivo não substitui os testes, e os testes não substituem a demonstração.
+
+---
+
 ## 3. Síntese Crítica de Encerramento (Preenchida na Semana 13)
 
 * **Onde a IA mais acelerou a entrega:** [preencher na Semana 13]

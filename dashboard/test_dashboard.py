@@ -108,6 +108,18 @@ class TestPainel(unittest.TestCase):
         caixa = next(m.value for m in at.markdown if 'class="diagnostico"' in m.value)
         self.assertIn("PADRÃO ANÔMALO (score 0.71)", caixa)
 
+    @patch.object(cliente, "historico", side_effect=historico)
+    def test_api_cai_depois_de_responder(self, *_):
+        with patch.object(cliente, "status_sensores", return_value=SENSORES):
+            at = rodar()
+        self.assertTrue(any("Conectado à API" in c.value for c in at.caption))
+        with patch.object(cliente, "status_sensores", side_effect=cliente.ApiIndisponivel("conexão recusada")):
+            at.run()
+        self.assertIn("Sem comunicação com a API desde", at.error[0].value)
+        html = " ".join(m.value for m in at.markdown)
+        self.assertIn("CRÍTICO", html)  # os últimos dados continuam na tela...
+        self.assertIn('class="desatualizado"', html)  # ...esmaecidos
+
     @patch.object(cliente, "status_sensores", side_effect=cliente.ApiIndisponivel("conexão recusada"))
     def test_api_fora_do_ar(self, *_):
         at = rodar()

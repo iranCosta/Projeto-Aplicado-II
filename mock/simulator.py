@@ -23,6 +23,8 @@ import random
 import sqlite3
 import sys
 import time
+import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -270,33 +272,69 @@ def modo_batch(args, pasta: Path):
           f"{len(sims)} sensores | saída: {', '.join(args.saida)} em {pasta}")
 
 
+CAMPOS_API = ["sensor_id", "timestamp", "rms", "assimetria", "curtose", "frequencia_pico", "rotacao_rpm"]
+
+
+def envia_api(url: str, l: dict) -> dict:
+    """POST /api/dados com os campos que a API aceita (o gabarito do simulador não vai)."""
+    corpo = json.dumps({c: l[c] for c in CAMPOS_API}).encode("utf-8")
+    req = urllib.request.Request(f"{url.rstrip('/')}/api/dados", data=corpo, method="POST",
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=5) as r:
+        return json.loads(r.read())
+
+
 def modo_stream(args, pasta: Path):
+    """Gera leituras em tempo real. Com --api, envia cada uma ao backend (que diagnostica, grava e alerta);
+    sem --api, grava direto no SQLite."""
     sims = criar_sensores(args.seed, args.anomalias)
-    con = abre_db(pasta / "vibracao.db", recriar=args.recriar)
+    con = None if args.api else abre_db(pasta / "vibracao.db", recriar=args.recriar)
     ultimo: dict = {}
     cor = {"NORMAL": "\033[92m", "ATENCAO": "\033[93m", "CRITICO": "\033[91m"}
-    total = 0
-    print(f"[stream] {len(sims)} sensores, 1 leitura/sensor a cada {args.intervalo}s. Ctrl+C para parar.")
+    total = falhas = 0
+    destino = f"API {args.api}" if args.api else str(pasta / "vibracao.db")
+    print(f"[stream] {len(sims)} sensores, 1 leitura/sensor a cada {args.intervalo}s -> {destino}. Ctrl+C para parar.")
     try:
         while args.n == 0 or total < args.n:
             ts = datetime.now(timezone.utc).replace(microsecond=0)
             for sim in sims:
                 l = sim.proxima_leitura(ts)
-                insere_leitura(con, l, ultimo)
+                extra = ""
+                if args.api:
+                    try:
+                        r = envia_api(args.api, l)
+                    except urllib.error.HTTPError as e:
+                        falhas += 1
+                        print(f"[erro] API recusou a leitura ({e.code}): {e.read().decode('utf-8', 'replace')}")
+                        continue
+                    except (urllib.error.URLError, OSError) as e:
+                        falhas += 1
+                        print(f"[erro] API indisponível em {args.api}: {e}. Tentando de novo na próxima rodada.")
+                        break
+                    l["status_alerta"] = r["status_alerta"]  # status calculado pelo backend
+                    if r.get("alerta"):
+                        extra += f" ALERTA #{r['alerta']['id']}"
+                    if (r.get("modelo") or {}).get("anomalia"):
+                        extra += f" modelo:anômalo({r['modelo']['score']:.2f})"
+                else:
+                    insere_leitura(con, l, ultimo)
                 total += 1
                 marca = f" <- {l['tipo_anomalia']}" if l["anomalia_real"] else ""
                 print(f"{l['timestamp']} sensor={l['sensor_id']} rms={l['rms']:6.2f} curt={l['curtose']:6.2f} "
-                      f"pico={l['frequencia_pico']:7.1f}Hz {cor[l['status_alerta']]}{l['status_alerta']}\033[0m{marca}")
+                      f"pico={l['frequencia_pico']:7.1f}Hz {cor[l['status_alerta']]}{l['status_alerta']}\033[0m"
+                      f"{extra}{marca}")
                 if args.n and total >= args.n:
                     break
-            con.commit()
+            if con:
+                con.commit()
             time.sleep(args.intervalo)
     except KeyboardInterrupt:
         print("\n[stream] interrompido.")
     finally:
-        con.commit()
-        con.close()
-    print(f"[ok] {total} leituras gravadas em {pasta / 'vibracao.db'}")
+        if con:
+            con.commit()
+            con.close()
+    print(f"[ok] {total} leituras enviadas para {destino}" + (f" ({falhas} falhas)" if falhas else ""))
 
 
 def main(argv=None):
@@ -312,6 +350,8 @@ def main(argv=None):
     p.add_argument("--seed", type=int, default=42, help="semente para reproduzir os dados")
     p.add_argument("--pasta", default=str(AQUI / "data"), help="pasta de saída")
     p.add_argument("--recriar", action="store_true", help="stream: apaga o banco antes de começar")
+    p.add_argument("--api", metavar="URL", help="stream: envia as leituras ao backend (ex.: http://127.0.0.1:8000) "
+                                                "em vez de gravar direto no banco")
     args = p.parse_args(argv)
     if not 0 <= args.anomalias < 1:
         p.error("--anomalias deve estar entre 0 e 1")

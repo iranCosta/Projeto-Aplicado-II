@@ -6,7 +6,7 @@ Pensado para monitor de chão de fábrica: cartões grandes, legíveis a 2 metro
 verde = normal, amarelo = atenção, vermelho = crítico.
 """
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
 
@@ -38,6 +38,7 @@ CSS = """
 .cartao .estado { font-size: 2.6rem; font-weight: 900; letter-spacing: .04em; margin: 8px 0 4px; }
 .cartao .valores { font-size: 1.25rem; font-weight: 600; }
 .cartao .hora { font-size: .95rem; opacity: .85; margin-top: 4px; }
+.desatualizado { opacity: .45; filter: grayscale(.6); }
 .pulso { animation: pulso 1.2s ease-in-out infinite; }
 @keyframes pulso { 0%, 100% { box-shadow: 0 0 0 0 rgba(185,28,28,.8); } 50% { box-shadow: 0 0 0 12px rgba(185,28,28,0); } }
 .resumo { font-size: 1.5rem; font-weight: 700; }
@@ -95,7 +96,9 @@ def resumo(sensores: list[dict]) -> str:
 
 def grafico(df: pd.DataFrame, campo: str, titulo: str, lim_atencao: float, lim_critico: float) -> alt.Chart:
     df = df.assign(estado=df["status_alerta"].map(lambda s: ESTILO[s][2]),
-                   modelo_anomalo=[modelo_anomalo(r) for r in df.to_dict("records")])
+                   modelo_anomalo=[modelo_anomalo(r) for r in df.to_dict("records")],
+                   # sem fuso: o navegador desenha o relógio como está (UTC), sem converter para o horário local
+                   timestamp=pd.to_datetime(df["timestamp"], utc=True).dt.tz_localize(None))
     base = alt.Chart(df).encode(x=alt.X("timestamp:T", title="Horário (UTC)", axis=alt.Axis(format="%d/%m %H:%M")))
     linha = base.mark_line(color="#64748b").encode(y=alt.Y(f"{campo}:Q", title=titulo))
     pontos = base.mark_circle(size=60).encode(
@@ -141,17 +144,36 @@ def texto_modelo(m: dict | None) -> str:
 
 @st.fragment(run_every=ATUALIZAR_A_CADA)
 def painel_geral() -> list[dict] | None:
+    """Cartões dos sensores. Se a API cair depois de já ter respondido, mantém os últimos dados
+    na tela (esmaecidos) com um aviso de desde quando está sem comunicação."""
+    estado = st.session_state
+    agora = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")  # mesmo fuso dos cartões e do gráfico
     try:
-        sensores = cliente.status_sensores()
+        if "ultimos_sensores" not in estado:  # primeira carga: indicador de carregamento
+            with st.spinner("Carregando dados da API…"):
+                sensores = cliente.status_sensores()
+        else:
+            sensores = cliente.status_sensores()
+        estado.update(ultimos_sensores=sensores, atualizado_em=agora, falha_desde=None)
+        desatualizado = False
     except cliente.ApiIndisponivel as e:
-        st.error(f"API indisponível. Suba a API com `uvicorn src.main:app` e confira API_URL.\n\n{e}")
-        return None
-    st.markdown(f'<div class="resumo">{resumo(sensores)}</div>', unsafe_allow_html=True)
+        if "ultimos_sensores" not in estado:
+            st.error(f"API indisponível. Suba a API com `uvicorn src.main:app` e confira API_URL.\n\n{e}")
+            return None
+        estado["falha_desde"] = estado.get("falha_desde") or agora
+        st.error(f"⚠ Sem comunicação com a API desde {estado['falha_desde']}. "
+                 f"Mostrando os últimos dados recebidos às {estado['atualizado_em']}. Tentando de novo a cada {ATUALIZAR_A_CADA}.")
+        sensores, desatualizado = estado["ultimos_sensores"], True
+
+    if not desatualizado:
+        st.caption(f"🟢 Conectado à API · atualizado às {estado['atualizado_em']} (a cada {ATUALIZAR_A_CADA})")
+    classe = "desatualizado" if desatualizado else ""
+    st.markdown(f'<div class="resumo {classe}">{resumo(sensores)}</div>', unsafe_allow_html=True)
     st.write("")
     colunas = st.columns(3)
     for i, s in enumerate(sensores):
         with colunas[i % 3]:
-            st.markdown(cartao_html(s), unsafe_allow_html=True)
+            st.markdown(f'<div class="{classe}">{cartao_html(s)}</div>', unsafe_allow_html=True)
     return sensores
 
 
