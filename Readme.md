@@ -69,7 +69,7 @@ Cada linha de `leituras_brutas` representa **uma janela de vibração já reduzi
 
 | Camada | Tecnologia |
 |---|---|
-| Linguagem | Python (testado com 3.13) |
+| Linguagem | Python 3.10 ou mais novo (testado com 3.12 e 3.13) |
 | Backend / API | FastAPI + Uvicorn |
 | Banco de dados | SQLite |
 | Análise e ML | pandas, NumPy, scikit-learn (`IsolationForest`) |
@@ -129,7 +129,7 @@ Cada linha de `leituras_brutas` representa **uma janela de vibração já reduzi
 
 ## Como Rodar
 
-**Pré-requisito:** Python 3 com `pip`.
+**Pré-requisito:** Python 3.10 ou mais novo, com `pip` (o código usa anotações como `str | None`). No Windows, clone numa pasta de caminho curto (ex.: `Downloads`): caminhos longos passam do limite de 260 caracteres e quebram a criação do `venv`.
 
 ```bash
 # 1. clonar
@@ -140,6 +140,7 @@ cd Projeto-Aplicado-II
 python -m venv venv
 source venv/bin/activate          # Linux/macOS
 # venv\Scripts\Activate.ps1       # Windows (PowerShell)
+# source venv/Scripts/activate     # Windows (Git Bash)
 
 # 3. dependências
 pip install -r requirements.txt
@@ -314,7 +315,7 @@ A curtose é guardada na forma não-excesso (distribuição normal ≈ 3).
 | ID | Requisito | Status |
 |---|---|---|
 | RNF01 | A resposta de uma inferência sobre o conjunto de dados do mock (≈ 5 mil leituras) deve levar menos de 3 s. | Atendido (testado em `services/test_modelo.py`) |
-| RNF02 | O projeto deve ser executável a partir de um clone limpo seguindo apenas este README; os dados do simulador devem ser reprodutíveis (`--seed`). | A validar |
+| RNF02 | O projeto deve ser executável a partir de um clone limpo seguindo apenas este README; os dados do simulador devem ser reprodutíveis (`--seed`). | Atendido (validado em 01/11/2026: clone limpo, `venv` novo, Python 3.12, 68 testes passando e as mesmas métricas do modelo) |
 | RNF03 | O modelo treinado deve ser salvo e carregado com `joblib`, sem retreinar a cada inicialização. | Atendido |
 | RNF04 | Configurações e segredos ficam no `.env`; `.env` e `*.db` não são versionados. | Atendido |
 | RNF05 | A lógica de leitura/validação e o simulador devem ter testes automatizados. | Atendido (`mock/`, `services/`, `src/`, `dashboard/`) |
