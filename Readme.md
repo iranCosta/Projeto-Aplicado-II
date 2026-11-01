@@ -33,8 +33,8 @@ Desenvolver uma aplicação capaz de analisar dados de sensores de vibração, d
 | Simulador de dados de vibração (lote e *stream*) | ✅ Pronto | `mock/simulator.py` |
 | Modelagem do banco (SQLite, 4 tabelas) | ✅ Pronto | `mock/schema.sql` |
 | Leitura e validação dos dados (SQLite/CSV/JSON) | ✅ Pronto | `mock/leitor_dados.py` |
-| API FastAPI (`/health`, `/api/exemplo`, `POST /api/dados`) | ✅ Pronto (scaffold) | `src/` |
-| Regra de diagnóstico por limiar (ISO 10816 adaptada) | ✅ Pronto e testado (ainda não exposto na API) | `services/regras.py` |
+| API FastAPI (`/health`, `POST /api/dados`, `/api/diagnosticos`, `/api/status`) | ✅ Pronto e testado | `src/` |
+| Regra de diagnóstico por limiar (ISO 10816 adaptada) | ✅ Pronto e testado (chamado pelo `POST /api/dados`) | `services/regras.py` |
 | Detecção de anomalias com Isolation Forest | 🔜 Planejado | experimento em `mock/leitor_dados.py --detectar` |
 | Salvar/carregar o modelo treinado (`joblib`) | 🔜 Planejado | `modelos_treinados/` |
 | Dashboard web (Streamlit) | 🔜 Planejado | `dashboard/` |
@@ -92,6 +92,9 @@ Cada linha de `leituras_brutas` representa **uma janela de vibração já reduzi
 ├── .gitignore
 ├── src/                       # API FastAPI
 │   ├── main.py                # cria o app, inicializa o banco e registra as rotas
+│   ├── schemas.py             # validação da entrada (Pydantic): tipos e limites operacionais
+│   ├── erros.py               # respostas de erro em português (422 e 503)
+│   ├── test_api.py            # testes da API
 │   ├── config.py              # lê o .env (PORT, DATABASE_PATH, SCHEMA_PATH)
 │   ├── database.py            # conexão SQLite, init_db(), ativos e sensores iniciais
 │   ├── routes/                # health.py, dados.py
@@ -157,13 +160,14 @@ A API fica em `http://localhost:8000` e a documentação interativa em `http://l
 
 ```bash
 curl http://localhost:8000/health
-curl "http://localhost:8000/api/exemplo?limite=5"
+curl "http://localhost:8000/api/diagnosticos?limite=5"
+curl http://localhost:8000/api/status
 ```
 
 **Rodar os testes automatizados:**
 
 ```bash
-python -m unittest services.test_regras -v     # regra de diagnóstico (na raiz)
+python -m unittest services.test_regras src.test_api -v     # regra e API (na raiz)
 cd mock
 python -m unittest test_mock test_leitor -v
 ```
@@ -179,8 +183,10 @@ python -m services.regras
 | Método | Rota | Descrição | Respostas |
 |---|---|---|---|
 | GET | `/health` | Verifica a conexão com o banco | `200` saudável · `503` banco indisponível |
-| GET | `/api/exemplo?limite=10` | Últimas leituras (`limite` de 1 a 100) | `200` |
-| POST | `/api/dados` | Insere uma leitura | `201` criada · `422` dados inválidos |
+| POST | `/api/dados` | Valida a leitura, aplica a regra de diagnóstico e grava com o status calculado | `201` criada · `422` dados inválidos ou sensor inexistente · `503` banco indisponível |
+| GET | `/api/diagnosticos?limite=10&sensor_id=&status=` | Últimas leituras com status, cor e motivos (filtros opcionais) | `200` · `422` filtro inválido |
+| GET | `/api/status` | Status atual (última leitura) de cada sensor | `200` |
+| GET | `/api/exemplo?limite=10` | Últimas leituras sem diagnóstico (provisório) | `200` |
 
 Exemplo de corpo do `POST /api/dados`:
 
@@ -192,9 +198,14 @@ Exemplo de corpo do `POST /api/dados`:
   "assimetria": 0.18,
   "curtose": 3.0,
   "frequencia_pico": 30.0,
-  "rotacao_rpm": 1780,
-  "status_alerta": "NORMAL"
+  "rotacao_rpm": 1780
 }
+```
+
+O `status_alerta` **não é enviado**: a API calcula com `services/regras.py` e devolve junto com `cor` e `motivos`. Validações (`src/schemas.py`): campos obrigatórios, campos extras recusados, tipos estritos (texto como `"1.5"` não vira número), NaN/infinito recusados, `timestamp` ISO 8601 com fuso e não no futuro, e limites operacionais (`rms` 0–100 mm/s, `curtose` 1–1024, `assimetria` ±32, `frequencia_pico` 0–1024 Hz, `rotacao_rpm` > 0 e ≤ 10 000). Erros voltam em português:
+
+```json
+{"detail": [{"campo": "rms", "mensagem": "deve ser maior ou igual a 0", "recebido": -1}]}
 ```
 
 ---
@@ -257,9 +268,9 @@ A curtose é guardada na forma não-excesso (distribuição normal ≈ 3).
 
 | ID | Requisito | Status |
 |---|---|---|
-| RF01 | O sistema deve ingerir leituras de vibração a partir de SQLite, CSV, JSON e `POST /api/dados`, rejeitando registros inválidos com o motivo. | Parcial |
-| RF02 | O sistema deve disponibilizar, por janela, os indicadores RMS, assimetria, curtose, frequência de pico e rotação, e permitir consultar as últimas leituras. | Parcial |
-| RF03 | O sistema deve classificar cada leitura como NORMAL, ATENCAO ou CRITICO por regra de limiar. | Pronto (módulo) |
+| RF01 | O sistema deve ingerir leituras de vibração a partir de SQLite, CSV, JSON e `POST /api/dados`, rejeitando registros inválidos com o motivo. | Pronto |
+| RF02 | O sistema deve disponibilizar, por janela, os indicadores RMS, assimetria, curtose, frequência de pico e rotação, e permitir consultar as últimas leituras. | Pronto |
+| RF03 | O sistema deve classificar cada leitura como NORMAL, ATENCAO ou CRITICO por regra de limiar. | Pronto |
 | RF04 | O sistema deve detectar anomalias com Isolation Forest, sem depender de falhas rotuladas. | Planejado |
 | RF05 | O sistema deve registrar um alerta na tabela `alertas` quando o status de um sensor piorar. | Planejado |
 | RF06 | O dashboard deve exibir o status por cores de cada ativo/sensor e a lista de alertas. | Planejado |
@@ -282,8 +293,8 @@ A curtose é guardada na forma não-excesso (distribuição normal ≈ 3).
 - Os dados são sintéticos; a validação com dados reais da planta depende da disponibilidade fornecida pela empresa.
 - Os limiares da regra são uma adaptação da ISO 10816, não calibrados para os ativos reais.
 - O Isolation Forest ainda não está treinado nem integrado à API; hoje existe apenas um experimento comparativo em `mock/leitor_dados.py --detectar`.
-- O endpoint `/api/exemplo` é provisório (consulta simples das últimas leituras).
-- `services/regras.py` ainda não é chamado pela API.
+- O endpoint `/api/exemplo` é provisório; use `/api/diagnosticos`.
+- O `POST /api/dados` ainda não grava registros na tabela `alertas` (RF05).
 
 ---
 

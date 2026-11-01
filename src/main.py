@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
+from src import erros
 from src.config import PORT
 from src.database import init_db
 from src.routes import dados, health
@@ -15,6 +16,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Diagnóstico Preditivo - API", lifespan=lifespan)
+erros.registrar(app)
 app.include_router(health.router)
 app.include_router(dados.router)
 
