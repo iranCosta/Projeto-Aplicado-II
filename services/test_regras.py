@@ -85,6 +85,11 @@ class TestEntradaInvalida(unittest.TestCase):
     def test_sensor_inexistente(self):
         self.assertInvalida(leitura(sensor_id=99), "inexistente", SENSORES)
 
+    def test_erro_informa_o_campo(self):
+        with self.assertRaises(DadosInvalidosError) as ctx:
+            diagnosticar_leitura(leitura(rotacao_rpm=0))
+        self.assertEqual(ctx.exception.campo, "rotacao_rpm")
+
     def test_valores_nao_numericos(self):
         for v in (None, "1.5", float("nan"), float("inf"), True):
             with self.subTest(valor=v):

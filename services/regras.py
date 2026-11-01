@@ -15,7 +15,12 @@ CAMPOS_NUMERICOS = ["rms", "assimetria", "curtose", "frequencia_pico", "rotacao_
 
 
 class DadosInvalidosError(ValueError):
-    """Entrada fora do esperado (nulo, negativo, campo faltando, sensor inexistente)."""
+    """Entrada fora do esperado (nulo, negativo, campo faltando, sensor inexistente).
+    `campo` indica qual campo causou o erro, quando é um só (a API devolve isso ao cliente)."""
+
+    def __init__(self, mensagem: str, campo: str | None = None):
+        super().__init__(mensagem)
+        self.campo = campo
 
 
 def _validar(leitura, sensores_validos):
@@ -28,22 +33,22 @@ def _validar(leitura, sensores_validos):
 
     sid = leitura["sensor_id"]
     if isinstance(sid, bool) or not isinstance(sid, int) or sid <= 0:
-        raise DadosInvalidosError(f"sensor_id deve ser inteiro positivo: {sid!r}")
+        raise DadosInvalidosError(f"sensor_id deve ser inteiro positivo: {sid!r}", "sensor_id")
 
     if sensores_validos is not None and leitura["sensor_id"] not in sensores_validos:
-        raise DadosInvalidosError(f"sensor inexistente: {leitura['sensor_id']}")
+        raise DadosInvalidosError(f"sensor inexistente: {leitura['sensor_id']}", "sensor_id")
 
     for campo in CAMPOS_NUMERICOS:
         v = leitura[campo]
         if isinstance(v, bool) or not isinstance(v, (int, float)) or math.isnan(v) or math.isinf(v):
-            raise DadosInvalidosError(f"{campo} nulo ou não numérico: {v!r}")
+            raise DadosInvalidosError(f"{campo} nulo ou não numérico: {v!r}", campo)
 
     if leitura["rms"] < 0:
-        raise DadosInvalidosError(f"rms negativo: {leitura['rms']}")
+        raise DadosInvalidosError(f"rms negativo: {leitura['rms']}", "rms")
     if leitura["frequencia_pico"] < 0:
-        raise DadosInvalidosError(f"frequência de pico negativa: {leitura['frequencia_pico']}")
+        raise DadosInvalidosError(f"frequência de pico negativa: {leitura['frequencia_pico']}", "frequencia_pico")
     if leitura["rotacao_rpm"] <= 0:
-        raise DadosInvalidosError(f"rotação deve ser maior que zero: {leitura['rotacao_rpm']}")
+        raise DadosInvalidosError(f"rotação deve ser maior que zero: {leitura['rotacao_rpm']}", "rotacao_rpm")
 
 
 def diagnosticar_leitura(leitura: dict, sensores_validos=None) -> dict:

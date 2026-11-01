@@ -133,7 +133,17 @@ class TestAPI(unittest.TestCase):
         self.post_invalido(payload(timestamp=futuro), "timestamp", "futuro")
 
     def test_sensor_inexistente(self):
-        self.post_invalido(payload(sensor_id=99), None, "sensor inexistente")
+        self.post_invalido(payload(sensor_id=99), "sensor_id", "sensor inexistente")
+
+    def test_json_quebrado(self):
+        r = self.c.post("/api/dados", content='{"sensor_id": 1,', headers={"Content-Type": "application/json"})
+        self.assertEqual(r.status_code, 422)
+        self.assertEqual(r.json()["detail"][0], {"campo": None, "mensagem": "JSON inválido",
+                                                 "recebido": r.json()["detail"][0]["recebido"]})
+
+    def test_limite_aparece_sem_casas_decimais(self):
+        r = self.c.post("/api/dados", json=payload(rms=-1))
+        self.assertEqual(r.json()["detail"][0]["mensagem"], "deve ser maior ou igual a 0")
 
     def test_corpo_nao_objeto(self):
         self.assertEqual(self.c.post("/api/dados", json=[1, 2]).status_code, 422)

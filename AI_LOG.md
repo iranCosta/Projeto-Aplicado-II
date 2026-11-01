@@ -12,9 +12,9 @@
 
 * **Modelos / Plataformas:**
   * Claude (Anthropic): simulador e dados (Aula 03). [EQUIPE: versão do modelo e quem usou]
-  * Claude Opus 5.5 no Claude Code (app desktop): testes da regra (Aula 05), API com validação (Aula 06) e painel Streamlit (Aula 07), sessão da Ederlane.
-  * [EQUIPE: outras ferramentas usadas na Semana 02, Aula 04 e Aula 05, ex.: ChatGPT, Gemini]
-* **Assistentes de IDE:** [EQUIPE: ex.: Copilot, Cursor — ou "nenhum"]
+  * ChatGPT (OpenAI): usado pela equipe fora do Claude Code, entre a Semana 02 e a Aula 05. [EQUIPE: versão, quem usou e em quais aulas]
+  * Claude Opus 5.5 no Claude Code (app desktop), sessão da Ederlane: testes da regra (Aula 05), API com validação (Aula 06), painel (Aula 07), Isolation Forest, alertas e integração ponta a ponta (Aula 08).
+* **Assistentes de IDE:** nenhum.
 
 ---
 
@@ -205,7 +205,17 @@
 **4. Intervenção Humana e Refatoração**
 
 * Revisão do diff e autorização de cada commit pela equipe (commit `7a94f01`).
-* [EQUIPE: teste manual pelo Swagger `/docs` — registrar os casos testados e o resultado]
+* Teste manual pelo Swagger (`/docs` → `POST /api/dados` → Try it out), em 01/11/2026:
+
+  | Caso | Resposta |
+  |---|---|
+  | Leitura válida com RMS 5,1 | 201: ATENCAO, alerta gerado, modelo anômalo (0,669) |
+  | RMS negativo | 422: `rms`: "deve ser maior ou igual a 0" |
+  | Sensor 99 | 422: `sensor_id`: "sensor inexistente: 99" |
+  | Enviando `status_alerta` | 422: "não deve ser enviado: o status é calculado pela API" |
+  | JSON quebrado | 422: "JSON inválido" |
+
+  O teste manual revelou três detalhes que os testes automáticos não pegavam: o limite aparecia como "0.0", o erro de sensor inexistente vinha com `campo: null` e o de JSON quebrado com `campo: "1"` (a posição no texto). Os três foram corrigidos e ganharam testes.
 * [EQUIPE: revisar os limites operacionais com quem conhece os equipamentos]
 * Mudança incompatível: `POST /api/dados` não aceita mais `status_alerta`, então os clientes antigos precisam ser ajustados. [EQUIPE: confirmar que o Iran e o Paulo foram avisados]
 
@@ -289,10 +299,10 @@
 
 **4. Intervenção Humana e Refatoração**
 
-* Decisão de projeto: o semáforo continua sendo o da regra (determinística, sem falsos alarmes), e o modelo aparece como indicador à parte. Motivo: precisão de 0,77, ou seja, cerca de 1 em cada 4 avisos do modelo é falso. [EQUIPE: confirmar ou rever essa decisão]
+* Decisão de projeto: o semáforo continua sendo o da regra (determinística, sem falsos alarmes), e o modelo aparece como indicador à parte. Motivo: precisão de 0,77, ou seja, cerca de 1 em cada 4 avisos do modelo é falso. **Decisão confirmada pela equipe em 01/11/2026.**
 * Espaço do aviso reservado em todos os cartões. A prioridade do detalhe passou a ser crítico → atenção → anômalo pelo modelo.
 * Leitura de teste (RMS 3,6 com pico em 2× a rotação: regra NORMAL, modelo anômalo) usada para conferir o painel e depois apagada.
-* [EQUIPE: comparar com as orientações da Aula 08 quando forem publicadas]
+* Comparado com as orientações da Aula 08 depois de publicadas: ver a entrada da Aula 08.
 
 ---
 
@@ -325,7 +335,7 @@
 * `leitura.inserir()` deixou de fazer commit sozinho, para a leitura e o alerta entrarem juntos.
 * Teste manual: uma leitura crítica gerou o alerta pela API, e o "Reconhecer" foi clicado no painel. O banco local foi restaurado depois (3.000 leituras e 28 alertas pendentes).
 * Limitação mantida: as mensagens dos alertas do simulador têm outro formato que as da API.
-* [EQUIPE: decidir se o modelo (Isolation Forest) também deve gerar alertas; hoje só a regra gera]
+* Decisão da equipe (01/11/2026): **só a regra gera alertas**. O modelo continua como aviso no cartão e na caixa de diagnóstico, para a lista de alertas ter só eventos confirmados.
 
 ---
 
@@ -354,7 +364,7 @@
 
 **4. Intervenção Humana e Refatoração**
 
-* [EQUIPE: quem já tem um `vibracao.db` local continua com as mensagens antigas nos alertas do simulador; basta rodar `python simulator.py` de novo]
+* Quem já tinha um `vibracao.db` local fica com as mensagens antigas nos alertas do simulador até rodar `python simulator.py` de novo (o banco da Ederlane foi regerado em 01/11/2026).
 
 ---
 
@@ -398,7 +408,7 @@
   * O painel listou os alertas chegando.
   * Com a API derrubada: aviso "Sem comunicação desde …", cartões esmaecidos e simulador tentando de novo.
   * Com a API religada: tudo voltou sozinho.
-* [EQUIPE: repetir a demonstração na apresentação do Checkpoint 2]
+* Roteiro para repetir a demonstração no Checkpoint 2: [`docs/roteiro_demonstracao.md`](docs/roteiro_demonstracao.md).
 
 ---
 
@@ -408,7 +418,7 @@
 
 | Aula | Prompt / pedido | Ferramenta |
 |---|---|---|
-| 05 | [EQUIPE: prompt que gerou a lógica original de `services/regras.py`]; depois, as orientações da Aula 05 coladas com o pedido de avaliar e completar | [EQUIPE] / Claude Code |
+| 05 | [EQUIPE: prompt que gerou a lógica original de `services/regras.py`]; depois, as orientações da Aula 05 coladas com o pedido de avaliar e completar | ChatGPT / Claude Code |
 | 06 | Orientações da Aula 06 coladas, "avaliar se atende" e depois "seguir" | Claude Code |
 | 07 | Orientações da Aula 07 e instruções extras do Projeto 1, com "continuar" | Claude Code |
 | — | "próximo passo" (Isolation Forest), "continuar" (alertas), "limpar pendências técnicas" | Claude Code |

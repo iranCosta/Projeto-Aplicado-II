@@ -42,10 +42,16 @@ def _json_seguro(valor):
         return repr(valor)
 
 
+def _numero(v):
+    """1024.0 -> 1024 nas mensagens (o Pydantic guarda os limites como float)."""
+    return int(v) if isinstance(v, float) and v.is_integer() else v
+
+
 def _traduzir(erro: dict) -> dict:
+    tipo, ctx = erro["type"], {k: _numero(v) for k, v in erro.get("ctx", {}).items()}
     loc = [p for p in erro["loc"] if p not in ("body", "query", "path")]
-    campo = ".".join(str(p) for p in loc) or None
-    tipo, ctx = erro["type"], erro.get("ctx", {})
+    # em JSON quebrado o "loc" é a posição do erro no texto, não um campo
+    campo = None if tipo == "json_invalid" else (".".join(str(p) for p in loc) or None)
 
     if tipo == "value_error":  # validadores próprios (ex.: timestamp no futuro)
         mensagem = str(ctx.get("error", erro["msg"]))
@@ -69,7 +75,7 @@ def registrar(app: FastAPI) -> None:
 
     @app.exception_handler(DadosInvalidosError)
     async def _regra(request: Request, exc: DadosInvalidosError):
-        return JSONResponse(status_code=422, content={"detail": [{"campo": None, "mensagem": str(exc)}]})
+        return JSONResponse(status_code=422, content={"detail": [{"campo": exc.campo, "mensagem": str(exc)}]})
 
     @app.exception_handler(sqlite3.Error)
     async def _banco(request: Request, exc: sqlite3.Error):
