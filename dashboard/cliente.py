@@ -31,3 +31,17 @@ def status_sensores() -> list[dict]:
 def historico(sensor_id: int, limite: int = 200) -> list[dict]:
     """Leituras mais recentes de um sensor (da mais nova para a mais antiga)."""
     return _get("/api/diagnosticos", sensor_id=sensor_id, limite=limite)["diagnosticos"]
+
+
+def alertas_pendentes(limite: int = 10) -> dict:
+    """Alertas ainda não reconhecidos (mais recentes primeiro) e o total pendente."""
+    return _get("/api/alertas", limite=limite, reconhecido="false")
+
+
+def reconhecer(alerta_id: int) -> dict:
+    try:
+        r = requests.post(f"{API_URL}/api/alertas/{alerta_id}/reconhecer", timeout=TIMEOUT_S)
+        r.raise_for_status()
+        return r.json()
+    except requests.RequestException as e:
+        raise ApiIndisponivel(f"{API_URL}/api/alertas/{alerta_id}/reconhecer: {e}") from e

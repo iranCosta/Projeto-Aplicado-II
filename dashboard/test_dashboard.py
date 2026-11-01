@@ -35,12 +35,40 @@ def historico(sensor_id, limite=200):
     return [{**s, "id": i, "timestamp": f"2026-10-22T{20 - i:02d}:00:00Z"} for i in range(5)]
 
 
+ALERTAS = {"total": 2, "nao_reconhecidos": 3, "alertas": [
+    {"id": 11, "leitura_id": 5, "sensor_id": 2, "tag": "MOT-102", "posicao": "LADO_ACOPLADO",
+     "timestamp": "2026-10-22T20:00:00Z", "severidade": "CRITICO", "mensagem": "RMS 8.20 >= 7.1 (crítico)",
+     "reconhecido": False},
+    {"id": 10, "leitura_id": 4, "sensor_id": 3, "tag": "CMP-201", "posicao": "LADO_ACOPLADO",
+     "timestamp": "2026-10-22T19:00:00Z", "severidade": "ATENCAO", "mensagem": "RMS 5.00 >= 4.5 (atenção)",
+     "reconhecido": False},
+]}
+
+
 def rodar():
     at = AppTest.from_file(str(PASTA / "app.py"), default_timeout=30)
     return at.run()
 
 
 class TestPainel(unittest.TestCase):
+    def setUp(self):
+        # nenhum teste fala com a API de verdade
+        for nome, kw in (("alertas_pendentes", {"return_value": ALERTAS}), ("reconhecer", {"return_value": {}})):
+            p = patch.object(cliente, nome, **kw)
+            setattr(self, nome, p.start())
+            self.addCleanup(p.stop)
+
+    @patch.object(cliente, "historico", side_effect=historico)
+    @patch.object(cliente, "status_sensores", return_value=SENSORES)
+    def test_lista_de_alertas_e_reconhecer(self, *_):
+        at = rodar()
+        self.assertTrue(any("Alertas não reconhecidos: 3" in s.value for s in at.subheader))
+        html = " ".join(m.value for m in at.markdown)
+        self.assertIn("RMS 8.20 &gt;= 7.1 (crítico)", html)
+        self.assertIn("Mostrando os 2 mais recentes de 3", " ".join(c.value for c in at.caption))
+        at.button(key="reconhecer_11").click().run()
+        self.reconhecer.assert_called_once_with(11)
+
     @patch.object(cliente, "historico", side_effect=historico)
     @patch.object(cliente, "status_sensores", return_value=SENSORES)
     def test_cartoes_e_resumo(self, *_):

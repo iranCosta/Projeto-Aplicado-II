@@ -45,5 +45,13 @@ def inserir(con, d: dict) -> int:
         "frequencia_pico, rotacao_rpm, status_alerta) "
         "VALUES (:sensor_id, :timestamp, :rms, :assimetria, :curtose, "
         ":frequencia_pico, :rotacao_rpm, :status_alerta)", d)
-    con.commit()
-    return cur.lastrowid
+    return cur.lastrowid  # o commit fica com quem chama (leitura e alerta na mesma transação)
+
+
+def status_anterior(con, sensor_id: int, timestamp: str, leitura_id: int) -> str | None:
+    """Status da leitura imediatamente anterior (no tempo) do mesmo sensor."""
+    row = con.execute(
+        "SELECT status_alerta FROM leituras_brutas WHERE sensor_id = ? AND id != ? "
+        "AND (timestamp < ? OR (timestamp = ? AND id < ?)) ORDER BY timestamp DESC, id DESC LIMIT 1",
+        (sensor_id, leitura_id, timestamp, timestamp, leitura_id)).fetchone()
+    return row[0] if row else None

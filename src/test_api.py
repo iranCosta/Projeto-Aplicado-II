@@ -144,6 +144,61 @@ class TestAPI(unittest.TestCase):
 
 
 
+
+class TestAlertas(unittest.TestCase):
+    """Usa o sensor 5 em janeiro, antes de todas as outras leituras dos testes."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.ctx = TestClient(app)
+        cls.c = cls.ctx.__enter__()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.ctx.__exit__(None, None, None)
+
+    def post(self, dia, **kw):
+        r = self.c.post("/api/dados", json=payload(sensor_id=5, timestamp=f"2026-01-{dia:02d}T10:00:00Z", **kw))
+        self.assertEqual(r.status_code, 201, r.text)
+        return r.json()
+
+    def test_01_sequencia_gera_alertas_quando_piora(self):
+        self.assertIsNone(self.post(1)["alerta"])                     # NORMAL, sem anterior
+        a1 = self.post(2, rms=5.0)["alerta"]                          # NORMAL -> ATENCAO
+        self.assertEqual(a1["severidade"], "ATENCAO")
+        self.assertIsNone(self.post(3, rms=5.2)["alerta"])            # ATENCAO -> ATENCAO
+        a2 = self.post(4, rms=8.0)["alerta"]                          # ATENCAO -> CRITICO
+        self.assertEqual(a2["severidade"], "CRITICO")
+        self.assertIsNone(self.post(5)["alerta"])                     # CRITICO -> NORMAL (melhorou)
+        lista = self.c.get("/api/alertas", params={"sensor_id": 5}).json()["alertas"]
+        jan = [a for a in lista if a["timestamp"].startswith("2026-01")]
+        self.assertEqual([a["severidade"] for a in jan], ["CRITICO", "ATENCAO"])  # mais recente primeiro
+        self.assertIn("RMS 8.00", jan[0]["mensagem"])
+        self.assertFalse(jan[0]["reconhecido"])
+
+    def test_02_leitura_atrasada_compara_com_a_anterior_no_tempo(self):
+        # dia 3 (ATENCAO) -> dia 3,5 critico: a anterior no tempo é a do dia 3, não a última inserida
+        r = self.c.post("/api/dados", json=payload(sensor_id=5, timestamp="2026-01-03T22:00:00Z", rms=7.5)).json()
+        self.assertEqual(r["alerta"]["severidade"], "CRITICO")
+
+    def test_03_reconhecer(self):
+        lista = self.c.get("/api/alertas", params={"reconhecido": "false"}).json()
+        antes = lista["nao_reconhecidos"]
+        alvo = lista["alertas"][0]["id"]
+        r = self.c.post(f"/api/alertas/{alvo}/reconhecer")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()["reconhecido"])
+        self.assertEqual(self.c.post(f"/api/alertas/{alvo}/reconhecer").status_code, 200)  # idempotente
+        depois = self.c.get("/api/alertas", params={"reconhecido": "false"}).json()
+        self.assertEqual(depois["nao_reconhecidos"], antes - 1)
+        self.assertNotIn(alvo, [a["id"] for a in depois["alertas"]])
+
+    def test_04_alerta_inexistente(self):
+        r = self.c.post("/api/alertas/999999/reconhecer")
+        self.assertEqual(r.status_code, 404)
+        self.assertIn("não encontrado", r.json()["detail"][0]["mensagem"])
+        self.assertEqual(self.c.post("/api/alertas/0/reconhecer").status_code, 422)
+
 def modelo_sintetico():
     """Isolation Forest treinado com leituras normais aleatórias dos 6 sensores."""
     rng = np.random.default_rng(0)

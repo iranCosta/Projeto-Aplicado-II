@@ -75,6 +75,14 @@ def diagnosticar_leitura(leitura: dict, sensores_validos=None) -> dict:
     }
 
 
+
+GRAVIDADE = {"NORMAL": 0, "ATENCAO": 1, "CRITICO": 2}
+
+
+def deve_alertar(status_anterior: str | None, status_atual: str) -> bool:
+    """Alerta quando o status do sensor piora em relação à leitura anterior (sem anterior = NORMAL)."""
+    return GRAVIDADE[status_atual] > GRAVIDADE[status_anterior or "NORMAL"]
+
 if __name__ == "__main__":
     # Demonstração no terminal (Aula 05). Rode da raiz: python -m services.regras
     base = {"sensor_id": 1, "assimetria": 0.1, "frequencia_pico": 30.0, "rotacao_rpm": 1780}

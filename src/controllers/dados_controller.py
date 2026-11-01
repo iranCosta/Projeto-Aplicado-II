@@ -2,10 +2,10 @@ import sqlite3
 
 from fastapi import HTTPException
 
-from services.regras import diagnosticar_leitura
+from services.regras import deve_alertar, diagnosticar_leitura
 from src import ia
 from src.database import get_connection
-from src.models import leitura
+from src.models import alerta, leitura
 
 
 def _com_diagnostico(linhas: list[dict]) -> list[dict]:
@@ -49,7 +49,8 @@ def status_por_sensor() -> dict:
 
 
 def criar_leitura(dados: dict) -> dict:
-    """Aplica a regra de negócio, grava a leitura com o status calculado e devolve o diagnóstico.
+    """Aplica a regra de negócio, grava a leitura com o status calculado e, se o status do sensor
+    piorou em relação à leitura anterior, grava um alerta (RF05) na mesma transação.
     DadosInvalidosError (ex.: sensor inexistente) vira 422 pelo handler em src/erros.py."""
     con = get_connection()
     try:
@@ -57,9 +58,18 @@ def criar_leitura(dados: dict) -> dict:
         registro = {**dados, "status_alerta": diagnostico["status"]}
         try:
             novo_id = leitura.inserir(con, registro)
+            anterior = leitura.status_anterior(con, registro["sensor_id"], registro["timestamp"], novo_id)
+            novo_alerta = None
+            if deve_alertar(anterior, diagnostico["status"]):
+                novo_alerta = {"leitura_id": novo_id, "sensor_id": registro["sensor_id"],
+                               "timestamp": registro["timestamp"], "severidade": diagnostico["status"],
+                               "mensagem": "; ".join(diagnostico["motivos"])}
+                novo_alerta["id"] = alerta.inserir(con, novo_alerta)
+            con.commit()
         except sqlite3.IntegrityError as e:
             raise HTTPException(status_code=422, detail=[{"campo": None, "mensagem": f"rejeitado pelo banco: {e}"}])
         return {"id": novo_id, **registro, "cor": diagnostico["cor"], "motivos": diagnostico["motivos"],
-                "modelo": ia.avaliar([registro])[0]}
+                "modelo": ia.avaliar([registro])[0],
+                "alerta": {"id": novo_alerta["id"], "severidade": novo_alerta["severidade"]} if novo_alerta else None}
     finally:
         con.close()

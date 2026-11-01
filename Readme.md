@@ -37,7 +37,7 @@ Desenvolver uma aplicação capaz de analisar dados de sensores de vibração, d
 | Regra de diagnóstico por limiar (ISO 10816 adaptada) | ✅ Pronto e testado (chamado pelo `POST /api/dados`) | `services/regras.py` |
 | Detecção de anomalias com Isolation Forest (um modelo por sensor) | ✅ Pronto e testado (na API e no painel) | `services/modelo.py`, `src/ia.py` |
 | Salvar/carregar o modelo treinado (`joblib`) | ✅ Pronto (gerado localmente, não versionado) | `modelos_treinados/` |
-| Dashboard web (Streamlit): cartões de status, gráfico de RMS/curtose e diagnóstico | ✅ Pronto (falta a lista de alertas) | `dashboard/` |
+| Dashboard web (Streamlit): cartões de status, alertas, gráfico de RMS/curtose e diagnóstico | ✅ Pronto | `dashboard/` |
 
 ---
 
@@ -50,8 +50,8 @@ flowchart LR
     C --> D["Indicadores por janela<br/>RMS · assimetria · curtose<br/>freq. de pico · rpm"]
     D --> E["Regra por limiar<br/>services/regras.py"]
     D --> F["Isolation Forest<br/>services/modelo.py"]
-    E --> G[("Tabela alertas")]
-    F --> G
+    E -->|"status piorou"| G[("Tabela alertas")]
+    F -->|"anomalia + score"| H
     G --> H["API FastAPI<br/>src/"]
     C --> H
     H --> I["Dashboard Streamlit<br/>dashboard/"]
@@ -100,9 +100,9 @@ Cada linha de `leituras_brutas` representa **uma janela de vibração já reduzi
 │   ├── test_api.py            # testes da API
 │   ├── config.py              # lê o .env (PORT, DATABASE_PATH, SCHEMA_PATH)
 │   ├── database.py            # conexão SQLite, init_db(), ativos e sensores iniciais
-│   ├── routes/                # health.py, dados.py
-│   ├── controllers/           # health_controller.py, dados_controller.py
-│   └── models/                # leitura.py (consultas SQL)
+│   ├── routes/                # health.py, dados.py, alertas.py
+│   ├── controllers/           # health_controller.py, dados_controller.py, alertas_controller.py
+│   └── models/                # leitura.py, alerta.py (consultas SQL)
 ├── services/
 │   ├── regras.py              # diagnóstico por limiar (NORMAL / ATENCAO / CRITICO)
 │   ├── modelo.py              # Isolation Forest: treino, avaliação, joblib
@@ -217,6 +217,8 @@ python -m services.regras
 | POST | `/api/dados` | Valida a leitura, aplica a regra de diagnóstico e grava com o status calculado | `201` criada · `422` dados inválidos ou sensor inexistente · `503` banco indisponível |
 | GET | `/api/diagnosticos?limite=10&sensor_id=&status=` | Últimas leituras com status, cor e motivos (filtros opcionais) | `200` · `422` filtro inválido |
 | GET | `/api/status` | Status atual (última leitura) de cada sensor | `200` |
+| GET | `/api/alertas?limite=50&sensor_id=&reconhecido=` | Alertas (o status de um sensor piorou), com o total não reconhecido | `200` · `422` filtro inválido |
+| POST | `/api/alertas/{id}/reconhecer` | Marca o alerta como reconhecido pelo operador (pode repetir) | `200` · `404` não encontrado |
 | GET | `/api/exemplo?limite=10` | Últimas leituras sem diagnóstico (provisório) | `200` |
 
 Exemplo de corpo do `POST /api/dados`:
@@ -233,7 +235,7 @@ Exemplo de corpo do `POST /api/dados`:
 }
 ```
 
-O `status_alerta` **não é enviado**: a API calcula com `services/regras.py` e devolve junto com `cor` e `motivos`. As respostas de leitura também trazem `modelo`: `{"anomalia": true, "score": 0.73}` (score maior = mais anômalo) ou `null` se o modelo não foi treinado. O semáforo segue a regra; o modelo é um indicador à parte, que aponta leituras fora do padrão do sensor mesmo abaixo dos limiares. Validações (`src/schemas.py`): campos obrigatórios, campos extras recusados, tipos estritos (texto como `"1.5"` não vira número), NaN/infinito recusados, `timestamp` ISO 8601 com fuso e não no futuro, e limites operacionais (`rms` 0–100 mm/s, `curtose` 1–1024, `assimetria` ±32, `frequencia_pico` 0–1024 Hz, `rotacao_rpm` > 0 e ≤ 10 000). Erros voltam em português:
+O `status_alerta` **não é enviado**: a API calcula com `services/regras.py` e devolve junto com `cor` e `motivos`. Se o status do sensor piorou em relação à leitura anterior (no tempo), o `POST` também grava um alerta (RF05) e devolve `alerta`: `{"id": 29, "severidade": "CRITICO"}` (ou `null`). As respostas de leitura também trazem `modelo`: `{"anomalia": true, "score": 0.73}` (score maior = mais anômalo) ou `null` se o modelo não foi treinado. O semáforo segue a regra; o modelo é um indicador à parte, que aponta leituras fora do padrão do sensor mesmo abaixo dos limiares. Validações (`src/schemas.py`): campos obrigatórios, campos extras recusados, tipos estritos (texto como `"1.5"` não vira número), NaN/infinito recusados, `timestamp` ISO 8601 com fuso e não no futuro, e limites operacionais (`rms` 0–100 mm/s, `curtose` 1–1024, `assimetria` ±32, `frequencia_pico` 0–1024 Hz, `rotacao_rpm` > 0 e ≤ 10 000). Erros voltam em português:
 
 ```json
 {"detail": [{"campo": "rms", "mensagem": "deve ser maior ou igual a 0", "recebido": -1}]}
@@ -303,8 +305,8 @@ A curtose é guardada na forma não-excesso (distribuição normal ≈ 3).
 | RF02 | O sistema deve disponibilizar, por janela, os indicadores RMS, assimetria, curtose, frequência de pico e rotação, e permitir consultar as últimas leituras. | Pronto |
 | RF03 | O sistema deve classificar cada leitura como NORMAL, ATENCAO ou CRITICO por regra de limiar. | Pronto |
 | RF04 | O sistema deve detectar anomalias com Isolation Forest, sem depender de falhas rotuladas. | Pronto |
-| RF05 | O sistema deve registrar um alerta na tabela `alertas` quando o status de um sensor piorar. | Planejado |
-| RF06 | O dashboard deve exibir o status por cores de cada ativo/sensor e a lista de alertas. | Parcial (falta a lista de alertas, depende do RF05) |
+| RF05 | O sistema deve registrar um alerta na tabela `alertas` quando o status de um sensor piorar. | Pronto |
+| RF06 | O dashboard deve exibir o status por cores de cada ativo/sensor e a lista de alertas. | Pronto |
 | RF07 | A API deve expor `GET /health` informando a situação da conexão com o banco. | Pronto |
 
 ### Não funcionais
@@ -326,7 +328,7 @@ A curtose é guardada na forma não-excesso (distribuição normal ≈ 3).
 - O Isolation Forest tem ~0,77 de precisão no teste: cerca de 1 em cada 4 avisos do modelo é falso alarme. Por isso ele não muda o semáforo, só sinaliza.
 - O modelo aprende o "normal" de cada sensor com dados sintéticos; com dados reais precisa ser retreinado (`python -m services.modelo`).
 - O endpoint `/api/exemplo` é provisório; use `/api/diagnosticos`.
-- O `POST /api/dados` ainda não grava registros na tabela `alertas` (RF05).
+- Alertas são gerados pela regra (status piorou), não pelo modelo. As mensagens dos alertas criados pelo simulador seguem outro formato (`Sensor 4: ATENCAO (RMS=...)`) que as criadas pela API (motivos da regra).
 
 ---
 

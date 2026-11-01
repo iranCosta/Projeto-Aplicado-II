@@ -296,6 +296,39 @@
 
 ---
 
+### Sprint 2 / Alertas (RF05 e RF06) (01/11/2026, antes das orientações da Aula 08)
+
+**1. Contexto e Objetivo da Tarefa**
+
+* Gravar um alerta quando o status de um sensor piora (RF05), listar e reconhecer alertas pela API e mostrar a lista no painel (RF06).
+
+**2. Principais Prompts e Contexto Fornecido**
+
+* **Prompt 1 (Claude Code):** "continuar", depois de a IA indicar o RF05 como o próximo item do roteiro.
+* **Contexto adicional:** a lógica de alerta que já existia no simulador (`gera_alerta`) e a tabela `alertas` do schema, que só o simulador preenchia.
+
+**3. Avaliação da Resposta Gerada**
+
+* **O que funcionou de primeira:**
+  * `deve_alertar()` em `services/regras.py`, com o mesmo critério do simulador (piorou em relação à leitura anterior).
+  * Leitura e alerta gravados na mesma transação.
+  * Comparação com a leitura anterior no tempo, e não com a última inserida, para aceitar leituras atrasadas.
+  * `GET /api/alertas` (filtros e total pendente) e `POST /api/alertas/{id}/reconhecer` (idempotente, 404 se não existir).
+  * Painel: lista com selo colorido, sensor, horário, mensagem e botão "Reconhecer".
+  * Testes da regra, da API e do painel.
+* **Falhas, alucinações ou código quebrado:**
+  * Os testes do painel passariam a chamar a API real que estava rodando na máquina. Foram isolados com as chamadas de alerta simuladas em todos os testes.
+  * A primeira captura de tela depois do clique em "Reconhecer" parecia não ter mudado nada, mas era só a tela ainda atualizando. A API confirmou que o alerta foi reconhecido.
+
+**4. Intervenção Humana e Refatoração**
+
+* `leitura.inserir()` deixou de fazer commit sozinho, para a leitura e o alerta entrarem juntos.
+* Teste manual: uma leitura crítica gerou o alerta pela API, e o "Reconhecer" foi clicado no painel. O banco local foi restaurado depois (3.000 leituras e 28 alertas pendentes).
+* Limitação mantida: as mensagens dos alertas do simulador têm outro formato que as da API.
+* [EQUIPE: decidir se o modelo (Isolation Forest) também deve gerar alertas; hoje só a regra gera]
+
+---
+
 ## 3. Síntese Crítica de Encerramento (Preenchida na Semana 13)
 
 * **Onde a IA mais acelerou a entrega:** [preencher na Semana 13]

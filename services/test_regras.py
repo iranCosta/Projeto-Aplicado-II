@@ -2,7 +2,7 @@
 import unittest
 
 from services.regras import (LIM_CURT_ATENCAO, LIM_CURT_CRITICO, LIM_RMS_ATENCAO, LIM_RMS_CRITICO,
-                             LIM_RMS_SENSOR_TRAVADO, DadosInvalidosError, diagnosticar_leitura)
+                             LIM_RMS_SENSOR_TRAVADO, DadosInvalidosError, deve_alertar, diagnosticar_leitura)
 
 SENSORES = {1, 2, 3, 4, 5, 6}
 
@@ -95,6 +95,16 @@ class TestEntradaInvalida(unittest.TestCase):
         self.assertInvalida(leitura(frequencia_pico=-1), "frequência")
         self.assertInvalida(leitura(rotacao_rpm=0), "rotação")
 
+
+
+class TestAlerta(unittest.TestCase):
+    def test_alerta_so_quando_piora(self):
+        casos = [(None, "NORMAL", False), (None, "ATENCAO", True), (None, "CRITICO", True),
+                 ("NORMAL", "ATENCAO", True), ("ATENCAO", "CRITICO", True), ("NORMAL", "CRITICO", True),
+                 ("ATENCAO", "ATENCAO", False), ("CRITICO", "ATENCAO", False), ("CRITICO", "NORMAL", False)]
+        for anterior, atual, esperado in casos:
+            with self.subTest(anterior=anterior, atual=atual):
+                self.assertEqual(deve_alertar(anterior, atual), esperado)
 
 if __name__ == "__main__":
     unittest.main()

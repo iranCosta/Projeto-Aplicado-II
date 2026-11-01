@@ -45,6 +45,8 @@ CSS = """
 .diagnostico .estado { font-size: 1.9rem; font-weight: 900; }
 .diagnostico ul { font-size: 1.35rem; font-weight: 600; margin: 6px 0 0; }
 .diagnostico .modelo { font-size: 1.35rem; font-weight: 700; margin-top: 10px; padding-top: 10px; border-top: 2px solid currentColor; }
+.selo { border-radius: 8px; padding: 6px 0; text-align: center; font-size: 1.15rem; font-weight: 900; }
+.alerta { font-size: 1.1rem; line-height: 1.35; }
 .alerta-modelo { display: inline-block; margin-top: 8px; padding: 4px 10px; border-radius: 8px; background: #111827; color: #fde047; font-size: 1.1rem; font-weight: 800; }
 </style>
 """
@@ -153,6 +155,40 @@ def painel_geral() -> list[dict] | None:
     return sensores
 
 
+def _reconhecer(alerta_id: int) -> None:
+    try:
+        cliente.reconhecer(alerta_id)
+    except cliente.ApiIndisponivel as e:
+        st.session_state["erro_reconhecer"] = str(e)
+
+
+@st.fragment(run_every=ATUALIZAR_A_CADA)
+def painel_alertas() -> None:
+    if erro := st.session_state.pop("erro_reconhecer", None):
+        st.error(f"Não foi possível reconhecer o alerta: {erro}")
+    try:
+        dados = cliente.alertas_pendentes()
+    except cliente.ApiIndisponivel as e:
+        st.error(f"Não foi possível carregar os alertas: {e}")
+        return
+    total = dados["nao_reconhecidos"]
+    st.subheader(f"🔔 Alertas não reconhecidos: {total}")
+    if not total:
+        st.caption("Nenhum alerta pendente.")
+        return
+    for a in dados["alertas"]:
+        fundo, texto, rotulo = ESTILO[a["severidade"]]
+        selo, descricao, botao = st.columns([1.3, 7, 1.5], vertical_alignment="center")
+        selo.markdown(f'<div class="selo" style="background:{fundo};color:{texto}">{rotulo}</div>',
+                      unsafe_allow_html=True)
+        descricao.markdown(f'<div class="alerta"><b>{escape(nome_sensor(a))}</b> · {_hora(a["timestamp"])}<br>'
+                           f'{escape(a["mensagem"])}</div>', unsafe_allow_html=True)
+        botao.button("Reconhecer", key=f"reconhecer_{a['id']}", on_click=_reconhecer, args=(a["id"],),
+                     width="stretch")
+    if total > len(dados["alertas"]):
+        st.caption(f"Mostrando os {len(dados['alertas'])} mais recentes de {total}.")
+
+
 @st.fragment(run_every=ATUALIZAR_A_CADA)
 def detalhe(sensor: dict) -> None:
     try:
@@ -181,6 +217,9 @@ def main() -> None:
     sensores = painel_geral()
     if not sensores:
         return
+
+    st.divider()
+    painel_alertas()
 
     st.divider()
     st.header("Detalhe do sensor")
