@@ -4,7 +4,9 @@
 * **Equipe:** Ederlane Ciribelle Silva Fernandes, Iran Andrei da Costa, Paulo Ricardo Wosniak Soares
 * **Repositório:** https://github.com/iranCosta/Projeto-Aplicado-II
 
-> Trechos marcados com **[EQUIPE: ...]** ainda precisam ser preenchidos pelos integrantes. Prompts que não foram guardados e forem reconstruídos de memória devem ser marcados como *(reconstruído)*.
+> Trechos marcados com **[EQUIPE: ...]** ainda precisam ser preenchidos pelos integrantes.
+>
+> Os prompts marcados com *(reconstruído)* **não são o texto original**: os originais não foram guardados. Eles foram reescritos em 01/11/2026 a partir do que cada etapa produziu (README, código, commits e orientações da aula), para registrar o pedido feito à IA. Se algum integrante encontrar o texto original no histórico, ele deve substituir o reconstruído.
 
 ---
 
@@ -28,8 +30,11 @@
 
 **2. Principais Prompts e Contexto Fornecido**
 
-* **Prompt 1:** `[EQUIPE: cole aqui o prompt usado para definir a arquitetura/MVP]`
-* **Contexto adicional:** [EQUIPE: o que foi passado à IA — ex.: descrição do problema da Tuper, limite de 42 h, tipos de máquina]
+* **Prompt 1** *(reconstruído)*:
+
+  > Atue como engenheiro de software e especialista em manutenção preditiva. Nossa equipe precisa propor um MVP para a ArcelorMittal / Tuper que ajude a evitar paradas não planejadas de motores e compressores a partir de dados de vibração e rotação. O MVP precisa caber em 42 horas de desenvolvimento, em equipe de três pessoas, e não temos acesso direto aos sensores da planta. Sugira: (1) o escopo do MVP, separando o que entra e o que fica de fora; (2) quais indicadores calcular a partir do sinal de vibração; (3) uma técnica de detecção de anomalias que funcione sem uma base de falhas rotuladas; (4) a stack em Python; (5) um diagrama de blocos simples do fluxo de dados.
+
+* **Contexto adicional:** descrição do problema da Tuper (motores e compressores, desgaste mecânico, paradas não planejadas), limite de 42 horas, ausência de dados reais rotulados e preferência da equipe por Python.
 
 **3. Avaliação da Resposta Gerada**
 
@@ -68,8 +73,15 @@
 
 **2. Principais Prompts e Contexto Fornecido**
 
-* **Prompt 1:** `[EQUIPE: prompt usado para o schema e o simulador]`
-* **Contexto adicional:** [EQUIPE: ex.: tabelas sugeridas pelo professor, ativos da Tuper, limite de 3 a 5 tabelas]
+* **Prompt 1** *(reconstruído)*:
+
+  > Atue como engenheiro de dados industriais. Modele um banco SQLite enxuto (no máximo 5 tabelas) para um sistema de monitoramento de vibração com ativos (motores e compressores), sensores e leituras. Cada leitura representa uma janela de vibração já reduzida a indicadores: RMS, assimetria, curtose, frequência de pico e rotação, com um status NORMAL, ATENCAO ou CRITICO. Escreva o DDL com restrições CHECK e chaves estrangeiras.
+
+* **Prompt 2** *(reconstruído)*:
+
+  > Escreva um simulador em Python (`simulator.py`) que gere leituras de vibração realistas para esse banco: cerca de 90% de operação normal e 10% de anomalias, com ruído e falhas fisicamente plausíveis (desbalanceamento, desalinhamento, falha de rolamento, pico isolado e sensor travado) e degradação progressiva. Ele deve ter um modo lote (1.000 a 5.000 leituras em SQLite, CSV e JSON), um modo contínuo em tempo real e semente para os dados serem reprodutíveis. Guarde também o gabarito de cada leitura (se é anomalia e de que tipo), para avaliarmos o detector depois. Inclua testes automatizados.
+
+* **Contexto adicional:** tabelas de exemplo da aula para o projeto de vibração (`sensores`, `leituras_brutas`), limite de 3 a 5 tabelas, limiares da ISO 10816 para os níveis de alerta e os ativos da Tuper (motores de laminação e compressores de ar).
 
 **3. Avaliação da Resposta Gerada**
 
@@ -104,7 +116,9 @@
 
 **2. Principais Prompts e Contexto Fornecido**
 
-* **Prompt 1:** `[EQUIPE: prompt usado para gerar o scaffold da API]`
+* **Prompt 1** *(reconstruído)*:
+
+  > Atue como engenheiro de software backend. Crie a estrutura de uma API em FastAPI para o projeto, separada em camadas: `routes` (HTTP e validação com Pydantic), `controllers` (regras da aplicação), `models` (consultas SQL) e `database` (conexão SQLite). A configuração (porta, caminho do banco e do schema) deve vir de um `.env`. Na inicialização, crie as tabelas a partir do `mock/schema.sql` e cadastre os ativos e sensores. Exponha `GET /health` (200 com o banco conectado, 503 se não), uma rota GET que liste as últimas leituras e um `POST /api/dados` que grave uma leitura. Use consultas SQL parametrizadas.
 * **Prompt 2:** o prompt de continuidade usado para retomar o projeto em outra sessão de IA foi guardado em [`docs/prompt_continuidade.md`](docs/prompt_continuidade.md).
 * **Contexto adicional:** estrutura atual do repositório, `mock/schema.sql`, ambiente Windows + Git Bash + Python 3.13.
 
@@ -142,7 +156,9 @@
 
 **2. Principais Prompts e Contexto Fornecido**
 
-* **Prompt 1:** `[EQUIPE: prompt que gerou a lógica inicial de services/regras.py]`
+* **Prompt 1** *(reconstruído)*:
+
+  > Atue como engenheiro de manutenção e desenvolvedor Python. Escreva uma função pura `diagnosticar_leitura(leitura, sensores_validos=None)` em `services/regras.py` que receba os indicadores de uma janela de vibração (sensor_id, rms, assimetria, curtose, frequencia_pico, rotacao_rpm) e devolva o status (NORMAL, ATENCAO ou CRITICO), a cor do semáforo e os motivos. Use limiares inspirados na ISO 10816: RMS ≥ 4,5 mm/s ou curtose ≥ 4 é ATENÇÃO; RMS ≥ 7,1 ou curtose ≥ 8 é CRÍTICO; RMS < 0,2 indica possível sensor travado. Inclua validações defensivas com uma exceção própria: leitura vazia, campos ausentes, sensor inexistente, valores nulos, NaN, infinito, texto, RMS ou frequência negativos e rotação menor ou igual a zero.
 * **Prompt 2 (01/11, Claude Code):** as orientações da Aula 05 foram coladas no chat com o pedido de avaliar se o projeto as atendia; depois veio a autorização para implementar o que faltava.
 * **Contexto adicional:** limiares do `simulator.py` (ISO 10816 adaptada) e o código existente.
 
@@ -418,7 +434,7 @@
 
 | Aula | Prompt / pedido | Ferramenta |
 |---|---|---|
-| 05 | [EQUIPE: prompt que gerou a lógica original de `services/regras.py`]; depois, as orientações da Aula 05 coladas com o pedido de avaliar e completar | ChatGPT / Claude Code |
+| 05 | Prompt da função `diagnosticar_leitura` *(reconstruído, ver a entrada da Aula 05)*; depois, as orientações da Aula 05 coladas com o pedido de avaliar e completar | ChatGPT / Claude Code |
 | 06 | Orientações da Aula 06 coladas, "avaliar se atende" e depois "seguir" | Claude Code |
 | 07 | Orientações da Aula 07 e instruções extras do Projeto 1, com "continuar" | Claude Code |
 | — | "próximo passo" (Isolation Forest), "continuar" (alertas), "limpar pendências técnicas" | Claude Code |
