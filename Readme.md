@@ -87,6 +87,8 @@ Cada linha de `leituras_brutas` representa **uma janela de vibração já reduzi
 .
 ├── Readme.md
 ├── AI_LOG.md                  # histórico do uso de IA no projeto
+├── docs/
+│   └── prompt_continuidade.md # prompt usado para retomar o projeto em outra sessão de IA
 ├── requirements.txt           # dependências da API e do ML
 ├── .env.example               # modelo de configuração (copiar para .env)
 ├── .gitignore

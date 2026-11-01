@@ -1,344 +1,218 @@
+# AI Log — Diário de Engenharia Assistida por IA
 
-PROMPT DE CONTINUIDADE — PROJETO APLICADO II
+* **Projeto:** Sistema Inteligente de Diagnóstico Preditivo de Falhas Mecânicas (ArcelorMittal / Tuper)
+* **Equipe:** Ederlane Ciribelle Silva Fernandes, Iran Andrei da Costa, Paulo Ricardo Wosniak Soares
+* **Repositório:** https://github.com/iranCosta/Projeto-Aplicado-II
 
-Atue como um engenheiro de software sênior, com experiência em Python, FastAPI, SQLite, Git, APIs REST, análise de dados industriais, manutenção preditiva e aprendizado de máquina.
+> Trechos marcados com **[EQUIPE: ...]** ainda precisam ser preenchidos pelos integrantes. Prompts que não foram guardados e forem reconstruídos de memória devem ser marcados como *(reconstruído)*.
 
-Preciso que você continue o desenvolvimento do meu projeto existente chamado Projeto-Aplicado-II, respeitando a estrutura atual do repositório e preservando tudo o que já foi feito.
+---
 
-Não quero começar o projeto do zero. Quero evoluir a implementação existente, corrigindo problemas com cuidado e mantendo uma arquitetura organizada.
+## 1. Ferramental Utilizado
 
-1. Contexto do projeto
+* **Modelos / Plataformas:**
+  * Claude (Anthropic): simulador e dados (Aula 03). [EQUIPE: versão do modelo e quem usou]
+  * Claude Opus 5.5 no Claude Code (app desktop): testes da regra (Aula 05) e API com validação (Aula 06), sessão da Ederlane.
+  * [EQUIPE: outras ferramentas usadas na Semana 02, Aula 04 e Aula 05, ex.: ChatGPT, Gemini]
+* **Assistentes de IDE:** [EQUIPE: ex.: Copilot, Cursor — ou "nenhum"]
 
-O repositório está hospedado em:
+---
 
-https://github.com/iranCosta/Projeto-Aplicado-II
+## 2. Registro Semanal de Interações Técnicas
 
-O desenvolvimento é realizado no Windows, utilizando Git Bash, Python 3.13 e um ambiente virtual chamado venv.
+### Sprint 1 / Semana 02 — Definição do MVP e da arquitetura (24/09/2026)
 
-O projeto utiliza dados simulados de vibração de equipamentos industriais e tem como objetivo construir uma base para um sistema de diagnóstico preditivo e manutenção baseada em condição.
+**1. Contexto e Objetivo da Tarefa**
 
-O banco de dados utilizado é SQLite.
+* Escolher o problema real (manutenção preditiva de motores e compressores na ArcelorMittal / Tuper), recortar um MVP que caiba em 42 horas e definir a stack.
 
-A API está sendo desenvolvida com FastAPI e executada com Uvicorn.
+**2. Principais Prompts e Contexto Fornecido**
 
-2. O que já foi realizado
-2.1. Repositório e organização dos arquivos
+* **Prompt 1:** `[EQUIPE: cole aqui o prompt usado para definir a arquitetura/MVP]`
+* **Contexto adicional:** [EQUIPE: o que foi passado à IA — ex.: descrição do problema da Tuper, limite de 42 h, tipos de máquina]
 
-O repositório foi clonado localmente com:
+**3. Avaliação da Resposta Gerada**
 
-git clone https://github.com/iranCosta/Projeto-Aplicado-II.git
+* **O que funcionou de primeira (sugestões úteis da IA):**
+  * Indicadores estatísticos por janela de vibração: RMS, assimetria e curtose.
+  * **Isolation Forest**, por ser não supervisionado: não exige uma base de falhas rotuladas, que a planta não tem.
+  * Status por cores (🟢 Normal, 🟡 Atenção, 🔴 Crítico) para o painel.
+  * Pipeline em 4 etapas: ingestão → indicadores → detecção → dashboard.
+* **Falhas, alucinações ou exageros:**
+  * O primeiro escopo (README de 24/09) falava em painel "em tempo real" e "análises estatísticas avançadas", o que não é viável sem conexão com a planta.
+  * A camada de visualização ficou indefinida ("Streamlit / Dash / Framework Web").
+  * [EQUIPE: outras sugestões que não fizeram sentido]
 
+**4. Intervenção Humana e Refatoração**
 
-Foi identificada uma estrutura duplicada mock/mock/, que foi corrigida para que os arquivos ficassem diretamente em mock/.
+* **Descartado por ser complexo demais para 42 h:**
+  * Conexão direta com CLP/sensores via OPC-UA ou MQTT (usamos dados sintéticos).
+  * Envio de alertas por SMS, WhatsApp ou e-mail.
+  * Análise espectral completa (FFT): usamos só a frequência de pico por janela.
+  * Classificadores supervisionados: não há base balanceada de falhas rotuladas.
+  * Autenticação e controle de acesso.
+* **Decisão final da equipe:**
+  * MVP com dados simulados.
+  * Backend em FastAPI + SQLite.
+  * Detecção combinando regra por limiar (ISO 10816 adaptada) e Isolation Forest.
+  * Dashboard em Streamlit consumindo a API.
+  * [EQUIPE: confirmar e justificar a decisão com as palavras de vocês]
 
-A alteração foi registrada no commit local:
+---
 
-eade23e — Achata mock/mock para mock
+### Sprint 1 / Aula 03 — Dados e Mocks Industriais (01/10/2026)
 
+**1. Contexto e Objetivo da Tarefa**
 
-Durante a limpeza do repositório, os arquivos .pyc de __pycache__ foram removidos do controle de versão.
+* Modelar um banco enxuto e criar um simulador de vibração com ~90% de operação normal e ~10% de anomalias, para o sistema ter o que detectar.
 
-Foi verificado que o arquivo mock/data/vibracao.db continua rastreado pelo Git, mesmo existindo uma regra *.db no .gitignore. Esse ponto precisa ser revisado.
+**2. Principais Prompts e Contexto Fornecido**
 
-2.2. Ambiente Python
+* **Prompt 1:** `[EQUIPE: prompt usado para o schema e o simulador]`
+* **Contexto adicional:** [EQUIPE: ex.: tabelas sugeridas pelo professor, ativos da Tuper, limite de 3 a 5 tabelas]
 
-Foi criado o ambiente virtual:
+**3. Avaliação da Resposta Gerada**
 
-python -m venv venv
-source venv/Scripts/activate
+* **O que funcionou de primeira:**
+  * Esquema enxuto com 4 tabelas (`ativos`, `sensores`, `leituras_brutas`, `alertas`), com DDL em SQLite e restrições CHECK/FK.
+  * `mock/simulator.py` (modos lote e stream), `mock/validar.py` e `mock/test_mock.py`.
+  * Anomalias fisicamente plausíveis (desbalanceamento, desalinhamento, rolamento, pico isolado, sensor travado), com degradação progressiva.
+  * `mock/leitor_dados.py`: carregador unificado (SQLite/CSV/JSON), validação com separação das linhas rejeitadas, resumo por sensor e baseline com Isolation Forest (um modelo por sensor).
+* **Falhas, alucinações ou código quebrado:**
+  * A anomalia de rolamento saiu com curtose ~3,3, indistinguível do normal, porque os pulsos longos se sobrepunham.
+  * O desalinhamento gerava RMS médio ~2,2, abaixo do limiar de atenção, ou seja, a anomalia não seria detectada.
+  * A fração de anomalias varia por semente (7–10% em vez de exatos 10%), porque os episódios são aleatórios.
 
+**4. Intervenção Humana e Refatoração**
 
-Foi criado um requirements.txt na raiz com:
+* Pulsos do rolamento encurtados e amplitude ajustada → curtose média ~5.
+* Amplitude da componente 2x do desalinhamento aumentada.
+* O teste de proporção passou a aceitar 5–15% de anomalias.
+* [EQUIPE: correções feitas à mão — ex.: conferência dos limiares com a ISO 10816, nomes e tags dos ativos (MOT-101 etc.), unidade mm/s, curtose na forma não-excesso (~3)]
+* **Resultado medido no mock (5.000 leituras):**
+  * Isolation Forest: recall ~0,85 e precisão ~0,83.
+  * Regra de limiar: recall ~0,57 e precisão 1,0.
+  * A regra deixa passar o início da degradação, e é aí que o modelo agrega valor.
 
-numpy>=1.24
-pandas>=2.0
-scikit-learn>=1.3
-fastapi>=0.110
-uvicorn>=0.29
-python-dotenv>=1.0
+---
 
+### Sprint 1 / Aula 04 — Estrutura do backend, banco e `/health` (08/10/2026)
 
-A instalação com pip install -r requirements.txt foi concluída com sucesso.
+**1. Contexto e Objetivo da Tarefa**
+
+* Organizar o repositório, conectar a aplicação ao SQLite e expor uma rota de healthcheck provando que a infraestrutura funciona.
+
+**2. Principais Prompts e Contexto Fornecido**
+
+* **Prompt 1:** `[EQUIPE: prompt usado para gerar o scaffold da API]`
+* **Prompt 2:** o prompt de continuidade usado para retomar o projeto em outra sessão de IA foi guardado em [`docs/prompt_continuidade.md`](docs/prompt_continuidade.md).
+* **Contexto adicional:** estrutura atual do repositório, `mock/schema.sql`, ambiente Windows + Git Bash + Python 3.13.
+
+**3. Avaliação da Resposta Gerada**
 
-2.3. Configuração
+* **O que funcionou de primeira:**
+  * Camadas separadas (`routes` → `controllers` → `models` → `database`).
+  * `src/config.py` lendo o `.env`.
+  * `init_db()` criando as tabelas a partir do `schema.sql`.
+  * `GET /health` com 200/503.
+  * Consultas SQL parametrizadas.
+* **Falhas, alucinações ou código quebrado:**
+  * O schema inicial de `POST /api/dados` aceitava `status_alerta` enviado pelo cliente e `timestamp` como texto livre. Isso foi corrigido na Aula 06. [EQUIPE: confirmar que esse trecho foi gerado pela IA]
+  * [EQUIPE: outros erros da IA nesta etapa]
 
-Foi criado .env.example:
+**4. Intervenção Humana e Refatoração**
 
-PORT=8000
-DATABASE_PATH=./mock/data/vibracao.db
-SCHEMA_PATH=./mock/schema.sql
+* Problemas de organização encontrados na auditoria do repositório (não necessariamente causados pela IA):
+  * Estrutura duplicada `mock/mock/` depois do upload.
+  * `.gitignore` enviado como `.gitignore.txt`, um nome que o Git não reconhece.
+  * `.pyc` e `mock/data/vibracao.db` versionados.
+* Achatamento de `mock/mock` → `mock` (commit `6d37d09`).
+* Renomeação de `.gitignore.txt` para `.gitignore`.
+* Remoção dos `.pyc` do controle de versão.
+* `vibracao.db` e os `.pyc` de `services/` deixaram de ser versionados na Aula 05 (commit `4d36672`).
+* [EQUIPE: outros ajustes manuais]
 
+---
 
-O arquivo local .env foi criado a partir desse exemplo.
+### Sprint 2 / Aula 05 — Núcleo da regra de negócio (21/10/2026; testes em 01/11/2026)
 
-O arquivo src/config.py carrega as variáveis de ambiente com python-dotenv, determina a raiz do projeto e calcula os caminhos absolutos do banco e do schema.
+**1. Contexto e Objetivo da Tarefa**
 
-Não versionar o .env nem o ambiente virtual.
+* Implementar a regra de diagnóstico como função pura em `services/regras.py`: recebe os indicadores de uma janela e devolve NORMAL / ATENCAO / CRITICO com os motivos, tratando entradas inválidas.
 
-2.4. Simulador
+**2. Principais Prompts e Contexto Fornecido**
 
-Foi executado:
+* **Prompt 1:** `[EQUIPE: prompt que gerou a lógica inicial de services/regras.py]`
+* **Prompt 2 (01/11, Claude Code):** as orientações da Aula 05 foram coladas no chat com o pedido de avaliar se o projeto as atendia; depois veio a autorização para implementar o que faltava.
+* **Contexto adicional:** limiares do `simulator.py` (ISO 10816 adaptada) e o código existente.
 
-python mock/simulator.py
+**3. Avaliação da Resposta Gerada**
 
+* **O que funcionou de primeira:**
+  * Função pura com limiares em constantes (RMS 4,5 / 7,1 mm/s; curtose 4 / 8; RMS < 0,2 = sensor travado).
+  * O nível crítico é avaliado antes do de atenção.
+  * Exceção própria `DadosInvalidosError` para leitura vazia, campos ausentes, sensor inexistente, NaN, infinito, texto, booleano, valores negativos e rotação ≤ 0.
+  * Conferido em 01/11: a regra e o classificador do simulador dão o mesmo status nas 3.000 leituras.
+* **Falhas, alucinações ou código quebrado:**
+  * O tipo do `sensor_id` não era validado: `"1"`, `None`, `0`, `-3` e `1.0` passavam.
+  * Não havia script de teste nem demonstração no terminal, que a aula exigia.
+  * Bug encontrado ao rodar os testes no Windows: em `mock/leitor_dados.py`, `with sqlite3.connect(...)` não fecha a conexão (só faz commit). O arquivo `.db` ficava travado e a limpeza dos testes falhava.
 
-A saída informou:
+**4. Intervenção Humana e Refatoração**
 
-3.000 leituras simuladas;
-210 leituras anômalas;
-7% de anomalias;
-6 sensores.
+* Validação de `sensor_id` como inteiro positivo.
+* `python -m services.regras`: demonstração com os 3 cenários (perfeito, crítico, erro de entrada).
+* `services/test_regras.py`: 14 testes (cada status, limites exatos, prioridade do crítico, função pura, entradas inválidas).
+* Correção da conexão em `leitor_dados.py` com `contextlib.closing`.
+* [EQUIPE: ajustes matemáticos ou de regra feitos por vocês na versão original — ex.: escolha dos limiares, ordem crítico → atenção]
 
-Os dados são armazenados em mock/data/, incluindo CSV, JSON e SQLite.
+---
 
-O simulador existente deve ser inspecionado antes de qualquer modificação.
+### Sprint 2 / Aula 06 — Exposição de endpoints e validação de payloads (01/11/2026)
 
-2.5. Banco de dados
+**1. Contexto e Objetivo da Tarefa**
 
-Foi criado src/database.py.
+* Ligar a regra de negócio a rotas HTTP:
+  * `POST` que valida o payload e aplica a regra.
+  * `GET` com os resultados processados.
+  * Respostas 201 / 422 com mensagens claras.
 
-Ele define:
+**2. Principais Prompts e Contexto Fornecido**
 
-get_connection(criar=False);
-init_db().
+* **Prompt 1 (Claude Code):** as orientações da Aula 06 foram coladas no chat com o pedido de avaliar se o projeto já as atendia. A IA listou o que faltava e depois recebeu a instrução "seguir" para implementar.
+* **Contexto adicional:** acesso ao repositório completo, ao banco gerado pelo simulador (para conferir as faixas reais de cada indicador) e ao `services/regras.py`.
 
-A conexão usa SQLite em modo URI, habilita chaves estrangeiras e configura o retorno das consultas com sqlite3.Row.
+**3. Avaliação da Resposta Gerada**
 
-A inicialização lê mock/schema.sql e cadastra quatro ativos e seis sensores iniciais usando INSERT OR IGNORE.
+* **O que funcionou de primeira:**
+  * Esquema `LeituraIn` (Pydantic v2) com tipos estritos e limites operacionais justificados:
+    * `frequencia_pico` ≤ 1024 Hz (limite de Nyquist, para amostragem de 2048 Hz).
+    * Curtose de 1 a 1024 e |assimetria| ≤ 32: limites matemáticos para 1024 amostras.
+  * `POST /api/dados` chamando `diagnosticar_leitura()` e gravando o status calculado.
+  * `GET /api/diagnosticos` (filtros por sensor e status) e `GET /api/status` (último status de cada sensor).
+  * Erros em português num formato único; 503 quando o banco está indisponível.
+  * 18 testes com `TestClient` num banco temporário, aprovados na primeira execução.
+* **Validações cruciais que a IA havia esquecido no schema original (Aula 04):**
+  * `status_alerta` vinha do cliente: quem chamava a API decidia se a leitura era crítica.
+  * `timestamp` como `str`: aceitava `"abc"`.
+  * Sem `gt=0` em `sensor_id` e `rotacao_rpm`, sem limites superiores e com campos extras aceitos em silêncio.
+  * `float` do Pydantic aceita NaN e infinito por padrão, e o JSON do Python também aceita `NaN`.
+  * Sem mensagens de erro personalizadas.
+* **Pontos de atenção da nova versão:**
+  * Os limites superiores (RMS ≤ 100 mm/s, rotação ≤ 10.000 rpm) foram escolhidos pela IA com folga. Não estão calibrados para os ativos da Tuper.
+  * O `TestClient` emite um aviso de descontinuação do `httpx` com o Starlette.
 
-Os ativos definidos são:
+**4. Intervenção Humana e Refatoração**
 
-MOT-101 — Motor Laminador 1;
-MOT-102 — Motor Laminador 2;
-CMP-201 — Compressor de Ar 1;
-CMP-202 — Compressor de Ar 2.
+* Revisão do diff e autorização de cada commit pela equipe (commit `7a94f01`).
+* [EQUIPE: teste manual pelo Swagger `/docs` — registrar os casos testados e o resultado]
+* [EQUIPE: revisar os limites operacionais com quem conhece os equipamentos]
+* Mudança incompatível: `POST /api/dados` não aceita mais `status_alerta`, então os clientes antigos precisam ser ajustados. [EQUIPE: confirmar que o Iran e o Paulo foram avisados]
 
-Antes de alterar essa lógica, verifique o conteúdo real do schema, o simulador e as tabelas existentes. Não presuma que todos os detalhes são compatíveis sem conferir o código.
+---
 
-2.6. Estrutura da API
+## 3. Síntese Crítica de Encerramento (Preenchida na Semana 13)
 
-Foram criados os diretórios e arquivos:
-
-src/
-├── __init__.py
-├── config.py
-├── database.py
-├── main.py
-├── controllers/
-│   ├── __init__.py
-│   ├── dados_controller.py
-│   └── health_controller.py
-├── models/
-│   ├── __init__.py
-│   └── leitura.py
-└── routes/
-    ├── __init__.py
-    ├── dados.py
-    └── health.py
-
-
-A arquitetura separa rotas HTTP, controladores, operações de persistência, conexão com o banco e configuração.
-
-2.7. Funcionalidades da API
-
-O arquivo src/main.py cria a aplicação FastAPI com o título:
-
-Diagnóstico Preditivo - API
-
-A aplicação registra os roteadores e executa init_db() durante o ciclo de vida de inicialização.
-
-O arquivo src/routes/health.py disponibiliza:
-
-GET /health
-
-
-O endpoint verifica a conectividade com o banco e retorna HTTP 200 quando a conexão funciona ou HTTP 503 quando falha.
-
-O arquivo src/routes/dados.py disponibiliza:
-
-GET /api/exemplo?limite=5
-POST /api/dados
-
-
-A consulta aceita um limite entre 1 e 100, com valor padrão 10.
-
-O cadastro utiliza um modelo Pydantic com os campos:
-
-sensor_id;
-timestamp;
-rms;
-assimetria;
-curtose;
-frequencia_pico;
-rotacao_rpm;
-status_alerta.
-
-O campo status_alerta aceita NORMAL, ATENCAO ou CRITICO. Os campos rms e frequencia_pico possuem validação para impedir valores negativos.
-
-O cadastro retorna HTTP 201 quando bem-sucedido. Erros de integridade do SQLite são convertidos em HTTP 422.
-
-O arquivo src/models/leitura.py contém as funções listar_ultimas() e inserir(), responsáveis pela consulta das leituras mais recentes e pela inserção de novos registros.
-
-2.8. Testes manuais já executados
-
-A aplicação foi iniciada com:
-
-python -m src.main
-
-
-Foram observadas respostas bem-sucedidas:
-
-GET /health       → 200 OK
-GET /api/exemplo  → 200 OK
-
-
-O servidor foi interrompido manualmente com Ctrl+C em algumas execuções. As mensagens de interrupção não devem ser confundidas automaticamente com erros funcionais da API.
-
-O endereço previsto para a documentação interativa é:
-
-http://localhost:8000/docs
-
-
-Ainda é necessário validar todos os endpoints e executar os testes automatizados.
-
-3. Estado atual e limitações conhecidas
-
-Não considere o projeto completamente finalizado.
-
-Os seguintes pontos ainda precisam ser investigados:
-
-Compatibilidade entre mock/schema.sql, o simulador e src/database.py.
-Funcionamento correto da inicialização quando o banco já contém dados.
-Funcionamento do endpoint POST /api/dados.
-Validação do formato e do significado dos timestamps.
-Testes automatizados dos módulos existentes.
-Tratamento de erros quando o banco está indisponível.
-Arquivos rastreados indevidamente pelo Git.
-Alterações da API que ainda podem estar pendentes de commit.
-Atualização do README principal.
-Implementação efetiva das funcionalidades de diagnóstico preditivo.
-
-Não afirme que os testes passaram se eles não tiverem sido executados.
-
-4. Como você deve trabalhar
-
-Siga estas regras durante o desenvolvimento:
-
-Primeiro, examine o código existente e identifique o estado real dos arquivos.
-Se eu fornecer saídas de terminal, use-as como evidência do ambiente atual.
-Não substitua arquivos inteiros sem necessidade.
-Preserve as funcionalidades existentes que já funcionam.
-Não altere o schema sem explicar a necessidade e os impactos.
-Evite duplicar a lógica entre rotas, controladores e modelos.
-Use consultas SQL parametrizadas.
-Trate erros de banco de dados de maneira explícita.
-Preserve os dados existentes durante as correções.
-Não gere novos bancos ou dados simulados sem necessidade.
-Não invente arquivos, funções, testes ou resultados que não foram verificados.
-Não execute git reset --hard, git clean -fd, nem comandos destrutivos sem explicar seus efeitos e obter minha autorização.
-Não faça push para o GitHub sem minha autorização.
-Não versione .env, venv/, __pycache__/, arquivos .pyc ou bancos gerados se a política do projeto determinar que devem ser ignorados.
-Se uma alteração exigir comandos de terminal, forneça comandos compatíveis com Git Bash no Windows.
-Explique em português brasileiro o objetivo de cada alteração.
-Quando houver código novo, indique o caminho exato do arquivo.
-Depois de cada etapa, forneça comandos claros para validar o resultado.
-Diferencie fatos confirmados, hipóteses e recomendações.
-5. Objetivos técnicos
-
-Quero evoluir o sistema progressivamente, respeitando esta ordem:
-
-Etapa 1 — Auditoria
-
-Inspecione a estrutura e os arquivos existentes.
-
-Verifique o estado do Git, o .gitignore, o schema SQL, o simulador, a API e os testes.
-
-Identifique problemas concretos antes de propor mudanças.
-
-Etapa 2 — Estabilização
-
-Corrija os problemas encontrados no banco e na API.
-
-Valide a inicialização, a consulta de leituras e a inserção de dados.
-
-Garanta que falhas de banco sejam tratadas corretamente.
-
-Etapa 3 — Testes
-
-Crie ou complete testes automatizados para:
-
-saúde da API;
-consulta de leituras;
-limites dos parâmetros;
-cadastro de leituras válidas;
-rejeição de dados inválidos;
-referência a sensores inexistentes;
-indisponibilidade do banco;
-preservação dos dados existentes.
-
-Utilize um banco de testes isolado quando apropriado. Os testes não devem modificar acidentalmente o banco de dados de desenvolvimento.
-
-Etapa 4 — Documentação
-
-Atualize o README com:
-
-objetivo;
-arquitetura;
-pré-requisitos;
-instalação;
-configuração;
-execução do simulador;
-inicialização da API;
-endpoints;
-exemplos de requisições;
-execução dos testes;
-limitações conhecidas.
-Etapa 5 — Diagnóstico preditivo
-
-Somente depois de estabilizar a API, avalie a implementação de análise de vibração, detecção de anomalias e modelos de aprendizado de máquina.
-
-Antes de escolher um algoritmo, examine os dados disponíveis, as variáveis, a distribuição dos registros, os rótulos existentes e os critérios de avaliação.
-
-Não presuma que a existência do scikit-learn significa que já existe um modelo treinado.
-
-Explique como evitar vazamento de dados e como separar treinamento e avaliação quando for pertinente.
-
-Etapa 6 — Controle de versão
-
-Revise as alterações com git status e git diff.
-
-Separe as mudanças em commits com mensagens claras.
-
-Somente faça push quando eu solicitar.
-
-6. Primeira tarefa
-
-Comece pela Etapa 1 — Auditoria, sem reescrever a aplicação inteira.
-
-Solicite ou examine os arquivos necessários para verificar:
-
-src/main.py;
-src/config.py;
-src/database.py;
-src/routes/;
-src/controllers/;
-src/models/;
-mock/schema.sql;
-mock/simulator.py;
-os testes existentes;
-.gitignore;
-requirements.txt;
-o README principal.
-
-Apresente um diagnóstico organizado em:
-
-O que está comprovadamente funcionando.
-Problemas confirmados no código.
-Riscos que precisam de testes.
-Arquivos que precisam ser alterados.
-Plano de correção em pequenas etapas.
-Comandos para executar e validar cada etapa.
-
-Não avance para grandes mudanças antes de apresentar o diagnóstico.
-
-Importante: considere esta descrição como o histórico conhecido do projeto, mas confira os arquivos e o estado atual do repositório antes de tomar decisões. O objetivo é continuar o trabalho existente de maneira segura, incremental e verificável.
+* **Onde a IA mais acelerou a entrega:** [preencher na Semana 13]
+* **Onde a IA mais atrapalhou ou gerou retrabalho:** [preencher na Semana 13]
+* **Lições aprendidas de engenharia de software:** [preencher na Semana 13]
