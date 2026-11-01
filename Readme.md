@@ -220,7 +220,6 @@ python -m services.regras
 | GET | `/api/status` | Status atual (última leitura) de cada sensor | `200` |
 | GET | `/api/alertas?limite=50&sensor_id=&reconhecido=` | Alertas (o status de um sensor piorou), com o total não reconhecido | `200` · `422` filtro inválido |
 | POST | `/api/alertas/{id}/reconhecer` | Marca o alerta como reconhecido pelo operador (pode repetir) | `200` · `404` não encontrado |
-| GET | `/api/exemplo?limite=10` | Últimas leituras sem diagnóstico (provisório) | `200` |
 
 Exemplo de corpo do `POST /api/dados`:
 
@@ -328,8 +327,7 @@ A curtose é guardada na forma não-excesso (distribuição normal ≈ 3).
 - Os limiares da regra são uma adaptação da ISO 10816, não calibrados para os ativos reais.
 - O Isolation Forest tem ~0,77 de precisão no teste: cerca de 1 em cada 4 avisos do modelo é falso alarme. Por isso ele não muda o semáforo, só sinaliza.
 - O modelo aprende o "normal" de cada sensor com dados sintéticos; com dados reais precisa ser retreinado (`python -m services.modelo`).
-- O endpoint `/api/exemplo` é provisório; use `/api/diagnosticos`.
-- Alertas são gerados pela regra (status piorou), não pelo modelo. As mensagens dos alertas criados pelo simulador seguem outro formato (`Sensor 4: ATENCAO (RMS=...)`) que as criadas pela API (motivos da regra).
+- Alertas são gerados pela regra (status piorou), não pelo modelo.
 
 ---
 

@@ -2,17 +2,12 @@ from typing import Literal
 
 from fastapi import APIRouter, Query
 
-from src.controllers.dados_controller import criar_leitura, listar_diagnosticos, listar_exemplo, status_por_sensor
+from src.controllers.dados_controller import criar_leitura, listar_diagnosticos, status_por_sensor
 from src.schemas import LeituraIn
 
 router = APIRouter(prefix="/api", tags=["dados"])
 
 RESPOSTA_422 = {422: {"description": "Dados inválidos ou regra violada (ex.: sensor inexistente)"}}
-
-
-@router.get("/exemplo")
-def exemplo(limite: int = Query(10, ge=1, le=100)):
-    return listar_exemplo(limite)
 
 
 @router.post("/dados", status_code=201, responses=RESPOSTA_422,

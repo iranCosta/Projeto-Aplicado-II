@@ -30,13 +30,12 @@ from pathlib import Path
 import numpy as np
 
 AQUI = Path(__file__).resolve().parent
+sys.path.insert(0, str(AQUI.parent))  # para importar services/ (regra de negócio única do projeto)
+from services.regras import (LIM_CURT_ATENCAO, LIM_CURT_CRITICO, LIM_RMS_ATENCAO,  # noqa: E402,F401
+                             LIM_RMS_CRITICO, LIM_RMS_SENSOR_TRAVADO, deve_alertar, diagnosticar_leitura)
+
 FS = 2048          # taxa de amostragem (Hz)
 JANELA = 1024      # amostras por leitura (0,5 s)
-
-# Limiares de alerta (inspirados na ISO 10816, velocidade RMS em mm/s)
-LIM_RMS_ATENCAO, LIM_RMS_CRITICO = 4.5, 7.1
-LIM_CURT_ATENCAO, LIM_CURT_CRITICO = 4.0, 8.0
-LIM_RMS_SENSOR_TRAVADO = 0.2
 
 TIPOS_ANOMALIA = ["DESBALANCEAMENTO", "DESALINHAMENTO", "FALHA_ROLAMENTO", "PICO_ISOLADO", "SENSOR_TRAVADO"]
 
@@ -145,15 +144,6 @@ class SensorSim:
         freq_pico = float(np.argmax(espectro[1:]) + 1) * FS / JANELA
         return {"rms": rms, "assimetria": assim, "curtose": curt, "frequencia_pico": freq_pico}
 
-    @staticmethod
-    def classifica(ind: dict) -> str:
-        if ind["rms"] >= LIM_RMS_CRITICO or ind["curtose"] >= LIM_CURT_CRITICO:
-            return "CRITICO"
-        if (ind["rms"] >= LIM_RMS_ATENCAO or ind["curtose"] >= LIM_CURT_ATENCAO
-                or ind["rms"] < LIM_RMS_SENSOR_TRAVADO):
-            return "ATENCAO"
-        return "NORMAL"
-
     def proxima_leitura(self, ts: datetime) -> dict:
         if self.episodio is None:
             self._sorteia_episodio()
@@ -165,7 +155,7 @@ class SensorSim:
             ep.passo += 1
             if ep.passo >= ep.duracao:
                 self.episodio = None
-        return {
+        leitura = {
             "sensor_id": self.sensor_id,
             "timestamp": ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "rms": round(ind["rms"], 4),
@@ -173,10 +163,10 @@ class SensorSim:
             "curtose": round(ind["curtose"], 4),
             "frequencia_pico": round(ind["frequencia_pico"], 1),
             "rotacao_rpm": round(rpm, 1),
-            "status_alerta": self.classifica(ind),
-            "anomalia_real": 1 if tipo else 0,
-            "tipo_anomalia": tipo,
         }
+        # status pela mesma regra da API (services/regras.py), sobre os valores gravados
+        leitura["status_alerta"] = diagnosticar_leitura(leitura)["status"]
+        return {**leitura, "anomalia_real": 1 if tipo else 0, "tipo_anomalia": tipo}
 
 
 def criar_sensores(seed: int, frac: float) -> list[SensorSim]:
@@ -189,16 +179,15 @@ def criar_sensores(seed: int, frac: float) -> list[SensorSim]:
 
 
 def gera_alerta(leitura: dict, leitura_id: int, ultimo: dict) -> dict | None:
-    """Alerta quando o status do sensor piora em relação à leitura anterior."""
-    ordem = {"NORMAL": 0, "ATENCAO": 1, "CRITICO": 2}
+    """Alerta quando o status do sensor piora em relação à leitura anterior (mesma regra e mensagem da API)."""
     sid, st = leitura["sensor_id"], leitura["status_alerta"]
-    anterior = ultimo.get(sid, "NORMAL")
+    anterior = ultimo.get(sid)
     ultimo[sid] = st
-    if ordem[st] > ordem[anterior]:
+    if deve_alertar(anterior, st):
         return {
             "leitura_id": leitura_id, "sensor_id": sid, "timestamp": leitura["timestamp"],
             "severidade": st,
-            "mensagem": f"Sensor {sid}: {st} (RMS={leitura['rms']} mm/s, curtose={leitura['curtose']})",
+            "mensagem": "; ".join(diagnosticar_leitura(leitura)["motivos"]),
             "reconhecido": 0,
         }
     return None

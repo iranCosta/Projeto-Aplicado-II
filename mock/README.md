@@ -28,7 +28,7 @@ Opções: `--anomalias 0.10` (fração de anomalias), `--seed 42` (reprodutível
 Cada leitura é uma janela de 1024 amostras a 2048 Hz (sinal 1x + 2x da rotação + ruído) reduzida a RMS, assimetria, curtose e frequência de pico. ~90% normal, ~10% em episódios de anomalia com severidade crescente:
 `DESBALANCEAMENTO` (RMS sobe), `DESALINHAMENTO` (2x forte), `FALHA_ROLAMENTO` (impulsos → curtose alta), `PICO_ISOLADO` (curtose extrema), `SENSOR_TRAVADO` (RMS ≈ 0).
 
-Limiares de status (ISO 10816 adaptado): RMS ≥ 4,5 ou curtose ≥ 4 → ATENCAO; RMS ≥ 7,1 ou curtose ≥ 8 → CRITICO.
+Limiares de status (ISO 10816 adaptado): RMS ≥ 4,5 ou curtose ≥ 4 → ATENCAO; RMS ≥ 7,1 ou curtose ≥ 8 → CRITICO. O status e a mensagem dos alertas vêm de `services/regras.py`, a mesma regra usada pela API (o simulador não tem cópia própria dos limiares).
 
 ## Leitura e teste dos dados (`leitor_dados.py`)
 ```bash

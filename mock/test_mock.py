@@ -43,6 +43,15 @@ class TestSimulador(unittest.TestCase):
         self.assertGreater(self.q("SELECT COUNT(*) FROM alertas")[0][0], 0)
         self.assertGreater(self.q("SELECT COUNT(*) FROM leituras_brutas WHERE status_alerta='CRITICO'")[0][0], 0)
 
+    def test_status_e_alertas_seguem_a_regra_da_api(self):
+        from services.regras import diagnosticar_leitura
+        cols = ["sensor_id", "rms", "assimetria", "curtose", "frequencia_pico", "rotacao_rpm", "status_alerta"]
+        for row in self.q(f"SELECT {', '.join(cols)} FROM leituras_brutas"):
+            leitura = dict(zip(cols, row))
+            self.assertEqual(leitura["status_alerta"], diagnosticar_leitura(leitura)["status"])
+        for (msg,) in self.q("SELECT mensagem FROM alertas"):
+            self.assertRegex(msg, r"(RMS|curtose) [\d.]+ (>=|<) [\d.]+")
+
     def test_rolamento_tem_curtose_alta(self):
         v = self.q("SELECT AVG(curtose) FROM leituras_brutas WHERE tipo_anomalia='FALHA_ROLAMENTO'")[0][0]
         self.assertGreater(v, 4)

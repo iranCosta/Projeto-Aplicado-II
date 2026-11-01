@@ -329,6 +329,35 @@
 
 ---
 
+### Sprint 2 / Limpeza técnica (01/11/2026)
+
+**1. Contexto e Objetivo da Tarefa**
+
+* Resolver duas pendências das limitações do README:
+  * mensagens de alerta do simulador num formato diferente das da API;
+  * endpoint provisório `/api/exemplo`.
+
+**2. Principais Prompts e Contexto Fornecido**
+
+* **Prompt 1 (Claude Code):** escolha da opção "Limpar pendências técnicas" entre as sugestões da IA.
+
+**3. Avaliação da Resposta Gerada**
+
+* **O que funcionou de primeira:**
+  * Em vez de só copiar o formato da mensagem, a IA apontou que o simulador tinha uma **cópia própria dos limiares e da classificação**, duplicando `services/regras.py`.
+  * O simulador passou a usar `diagnosticar_leitura()` e `deve_alertar()`. Agora existe uma única regra no projeto.
+  * Prova de que os dados não mudaram: com a semente 42, os hashes das 3.000 leituras e dos 28 alertas saíram idênticos antes e depois. Só o texto das mensagens mudou.
+  * Novo teste no simulador: o status de toda leitura bate com a regra da API, e as mensagens seguem o formato dela.
+  * `/api/exemplo` removido, junto com a função de controller e a consulta que só ele usava.
+* **Falhas, alucinações ou código quebrado:**
+  * Nenhuma nesta etapa.
+
+**4. Intervenção Humana e Refatoração**
+
+* [EQUIPE: quem já tem um `vibracao.db` local continua com as mensagens antigas nos alertas do simulador; basta rodar `python simulator.py` de novo]
+
+---
+
 ## 3. Síntese Crítica de Encerramento (Preenchida na Semana 13)
 
 * **Onde a IA mais acelerou a entrega:** [preencher na Semana 13]

@@ -4,10 +4,6 @@ JOIN_ATIVO = ("FROM leituras_brutas l JOIN sensores s ON s.id = l.sensor_id "
               "JOIN ativos a ON a.id = s.ativo_id")
 
 
-def listar_ultimas(con, limite: int = 10) -> list[dict]:
-    return listar_filtradas(con, limite)
-
-
 def listar_filtradas(con, limite: int, sensor_id: int | None = None, status: str | None = None) -> list[dict]:
     filtros, params = [], []
     if sensor_id is not None:

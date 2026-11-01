@@ -21,15 +21,6 @@ def _com_diagnostico(linhas: list[dict]) -> list[dict]:
     return resultado
 
 
-def listar_exemplo(limite: int) -> dict:
-    con = get_connection()
-    try:
-        dados = leitura.listar_ultimas(con, limite)
-        return {"total": len(dados), "leituras": dados}
-    finally:
-        con.close()
-
-
 def listar_diagnosticos(limite: int, sensor_id: int | None, status: str | None) -> dict:
     con = get_connection()
     try:
