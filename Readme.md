@@ -119,6 +119,7 @@ Cada linha de `leituras_brutas` representa **uma janela de vibração já reduzi
 │   ├── requirements.txt
 │   └── data/                  # ativos.csv, sensores.csv, leituras_brutas.csv/.json
 │                              # vibracao.db é gerado localmente (não versionado)
+├── frontend/                  # front web React + Vite (Vercel), lê os dados só pela API
 ├── dashboard/                 # painel Streamlit (lê os dados só pela API)
 │   ├── app.py                 # cartões por sensor, gráfico e diagnóstico
 │   ├── cliente.py             # chamadas HTTP à API (API_URL)
@@ -196,6 +197,18 @@ streamlit run dashboard/app.py
 ```
 
 O painel abre em `http://localhost:8501` e se atualiza a cada 10 s. Ele mostra quando está carregando, a hora da última atualização e, se a API cair, mantém os últimos dados na tela (esmaecidos) com um aviso vermelho de desde quando está sem comunicação. O endereço da API vem de `API_URL` no `.env` (padrão `http://127.0.0.1:8000`; no Windows, `localhost` custa ~2 s por chamada porque tenta IPv6 antes).
+
+**Front web (React + Vite, pasta `frontend/`)** — versão para navegador do painel, pensada para publicar na Vercel. Mostra os mesmos dados do Streamlit (cartões por sensor, alertas com "Reconhecer", gráfico de RMS/curtose com limiares e anel do modelo), tema claro/escuro e aviso de falta de comunicação. Lê tudo pela API, atualizando a cada 10 s.
+
+```bash
+cd frontend
+cp .env.example .env              # VITE_API_URL = endereço da API
+npm install
+npm run dev                       # http://localhost:5173 (com a API no ar)
+npm run build                     # gera frontend/dist
+```
+
+Publicação na Vercel: importar o repositório, **Root Directory = `frontend`**, preset Vite, e definir a variável `VITE_API_URL` com o endereço **HTTPS** público da API (a Vercel é HTTPS; `localhost` não funciona). Na API, incluir `https://projetoaplicado2.vercel.app` em `CORS_ORIGINS` e, para aceitar também os links de preview, `CORS_ORIGIN_REGEX=https://projetoaplicado2.*\.vercel\.app`. Atenção: `*.db` e `modelos_treinados/` não são versionados; onde a API for hospedada é preciso rodar `python mock/simulator.py` e `python -m services.modelo` antes de subir.
 
 **Fluxo ponta a ponta** (simulador → API → painel): com a API e o painel no ar, deixe o simulador rodando em outro terminal, enviando cada leitura pelo `POST /api/dados`:
 

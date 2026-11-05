@@ -1,0 +1,68 @@
+:root, :root[data-tema="claro"] {
+  --bg: #f4f6f8; --painel: #ffffff; --texto: #111827; --suave: #4b5563; --borda: #d1d5db;
+  --normal: #15803d; --atencao: #facc15; --critico: #b91c1c; --sem: #4b5563;
+  --on-atencao: #111827; --link: #1d4ed8;
+}
+:root[data-tema="escuro"] {
+  --bg: #0f141a; --painel: #1a212b; --texto: #f3f4f6; --suave: #aab3c0; --borda: #334155;
+  --normal: #16a34a; --atencao: #facc15; --critico: #dc2626; --sem: #64748b;
+  --on-atencao: #111827; --link: #93c5fd;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--texto); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+h1 { margin: 0; font-size: clamp(1.5rem, 4vw, 2.2rem); }
+h2 { font-size: 1.5rem; margin: 8px 0 12px; }
+.subtitulo { margin: 4px 0 0; color: var(--suave); }
+hr { border: 0; border-top: 1px solid var(--borda); margin: 28px 0; }
+button, select { font: inherit; color: var(--texto); background: var(--painel); border: 1px solid var(--borda); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+button:hover { border-color: var(--link); }
+.legenda { color: var(--suave); font-size: .92rem; }
+.erro { background: color-mix(in srgb, var(--critico) 14%, var(--painel)); border: 1px solid var(--critico); border-radius: 10px; padding: 12px 16px; }
+.resumo { font-size: 1.35rem; font-weight: 700; margin: 8px 0 16px; }
+.velho { opacity: .45; filter: grayscale(.6); }
+
+.grade-cartoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.cartao { border-radius: 14px; padding: 18px 22px; color: #fff; background: var(--sem); }
+.cartao.NORMAL { background: var(--normal); }
+.cartao.ATENCAO { background: var(--atencao); color: var(--on-atencao); }
+.cartao.CRITICO { background: var(--critico); }
+.cartao .tag { font-size: 2rem; font-weight: 800; line-height: 1.1; }
+.cartao .sub { opacity: .92; }
+.cartao .estado { font-size: 2.4rem; font-weight: 900; letter-spacing: .04em; margin: 8px 0 4px; }
+.cartao .valores { font-size: 1.15rem; font-weight: 600; }
+.cartao .hora { font-size: .92rem; opacity: .85; margin-top: 4px; }
+.aviso-modelo { display: inline-block; margin-top: 8px; padding: 4px 10px; border-radius: 8px; background: #111827; color: #fde047; font-weight: 800; }
+.pulso { animation: pulso 1.2s ease-in-out infinite; }
+@keyframes pulso { 0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,.8); } 50% { box-shadow: 0 0 0 12px rgba(220,38,38,0); } }
+@media (prefers-reduced-motion: reduce) { .pulso { animation: none; } }
+
+.alerta { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--borda); }
+.alerta-txt { flex: 1; line-height: 1.35; }
+.selo { min-width: 96px; text-align: center; border-radius: 8px; padding: 6px 0; font-weight: 900; color: #fff; }
+.selo.ATENCAO { background: var(--atencao); color: var(--on-atencao); }
+.selo.CRITICO { background: var(--critico); }
+
+.seletor { display: inline-block; margin-bottom: 16px; }
+.diagnostico { border-radius: 14px; padding: 16px 22px; margin-bottom: 8px; color: #fff; }
+.diagnostico.NORMAL { background: var(--normal); }
+.diagnostico.ATENCAO { background: var(--atencao); color: var(--on-atencao); }
+.diagnostico.CRITICO { background: var(--critico); }
+.diagnostico .estado { font-size: 1.8rem; font-weight: 900; }
+.diagnostico ul { font-size: 1.2rem; font-weight: 600; margin: 6px 0 0; }
+.diagnostico .modelo { font-size: 1.2rem; font-weight: 700; margin-top: 10px; padding-top: 10px; border-top: 2px solid currentColor; }
+
+.abas { display: flex; gap: 8px; margin: 12px 0; }
+.abas button[aria-selected="true"] { background: var(--link); border-color: var(--link); color: var(--bg); font-weight: 700; }
+.grafico { width: 100%; height: auto; background: var(--painel); border: 1px solid var(--borda); border-radius: 12px; }
+.grafico .grade { stroke: var(--borda); stroke-width: 1; }
+.grafico .eixo { fill: var(--suave); font-size: 12px; }
+.grafico .lim { font-size: 13px; font-weight: 700; }
+.grafico .linha { fill: none; stroke: var(--suave); stroke-width: 1.5; }
+.grafico .anel { fill: none; stroke: var(--texto); stroke-width: 2.5; opacity: .8; }
+
+@media (max-width: 560px) {
+  .alerta { flex-wrap: wrap; }
+  .cartao .estado { font-size: 2rem; }
+}

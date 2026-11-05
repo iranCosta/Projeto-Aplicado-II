@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src import erros, ia
-from src.config import CORS_ORIGINS, PORT
+from src.config import CORS_ORIGIN_REGEX, CORS_ORIGINS, PORT
 from src.database import init_db
 from src.routes import alertas, dados, health
 
@@ -19,7 +19,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Diagnóstico Preditivo - API", lifespan=lifespan)
 # CORS: só as origens locais listadas (CORS_ORIGINS no .env), métodos que a API usa e cabeçalhos livres
-app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_methods=["GET", "POST"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_origin_regex=CORS_ORIGIN_REGEX,
+                   allow_methods=["GET", "POST"], allow_headers=["*"])
 erros.registrar(app)
 app.include_router(health.router)
 app.include_router(dados.router)
