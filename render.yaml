@@ -1,0 +1,21 @@
+# Blueprint do Render: cria a API como serviço web. No Render: New > Blueprint > escolher este repositório.
+services:
+  - type: web
+    name: painel-ativos-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-api.txt
+    startCommand: bash iniciar.sh
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      # origens que podem chamar a API pelo navegador (separe por vírgula)
+      - key: CORS_ORIGINS
+        value: https://projetoaplicado2.vercel.app,http://localhost:5173
+      # aceita também previews e o projeto novo da Vercel; ajuste ao nome real do projeto
+      - key: CORS_ORIGIN_REGEX
+        value: https://(projetoaplicado2|projeto-aplicado-ii).*\.vercel\.app
+      # 1 = um simulador envia leituras novas continuamente (demonstração); 0 = só os dados iniciais
+      - key: SIMULAR
+        value: "1"
