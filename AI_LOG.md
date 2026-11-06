@@ -461,6 +461,31 @@
 
 ---
 
+### Sprint 2 / Aula 09 — Auditoria Cruzada de Setup e Onboarding (05/11/2026)
+
+**1. Contexto e Objetivo da Tarefa**
+
+* A equipe auditora, formada por Gabriel Angelo Foppa, Christoffer Henrique da Silva Souza e Ferdinando Rainert, avaliou a reprodutibilidade do repositório a partir do README, verificou dependências, mock, testes e build do frontend, e registrou um guia de setup corrigido.
+
+**2. Principais Prompts e Contexto Fornecido**
+
+* **Pedido nesta sessão:** realizar a auditoria de setup conforme o roteiro da Aula 09 e preencher o relatório no formato fornecido, com diagnóstico do onboarding, gargalos e comandos corrigidos. A equipe informou os nomes dos auditores para identificação nos dois registros.
+* **Contexto adicional:** `Readme.md`, `requirements.txt`, `requirements-api.txt`, `frontend/package.json`, `frontend/package-lock.json`, arquivos `.env.example`, documentação do mock e configuração da API.
+
+**3. Avaliação da Resposta Gerada**
+
+* **Diagnóstico auxiliado por IA:** os arquivos de dependências e configuração cobrem as necessidades do backend e do frontend. O README não lista Node.js/npm entre os pré-requisitos e não fornece o comando PowerShell para copiar o `.env.example` do frontend.
+* **Falha inicial reproduzível:** a suíte Python falhou no Python global por ausência de `numpy` e `requests`. Depois da instalação do `requirements.txt` em um ambiente virtual temporário, as quatro suítes principais passaram: 62 testes.
+* **Validação adicional:** as suítes `mock/test_mock.py` e `mock/test_leitor.py` passaram (15 testes); o simulador gerou 3.000 leituras em diretório temporário; `npm ci` e `npm run build` passaram.
+* **Limites da auditoria:** a execução ocorreu no workspace existente, não em clone limpo; o Uvicorn não foi iniciado como servidor HTTP independente e a interface não foi verificada manualmente no navegador. A nota registrada no `SETUP_AUDIT.md` considera essas limitações.
+
+**4. Intervenção Humana e Refatoração**
+
+* Criado `SETUP_AUDIT.md` com nota de reprodutibilidade, achados técnicos, passos PowerShell e resultados das validações.
+* A equipe auditora foi identificada no `SETUP_AUDIT.md` e neste diário. Para complementar a evidência antes da entrega, pode repetir o procedimento em uma pasta limpa e cronometrar o setup; essa etapa não foi realizada nesta auditoria.
+
+---
+
 ## 3. Síntese Crítica de Encerramento (Preenchida na Semana 13)
 
 * **Onde a IA mais acelerou a entrega:** [preencher na Semana 13]
